@@ -1,0 +1,386 @@
+/* ==========================================================================
+   PDV — Ponto de Venda
+   ========================================================================== */
+
+.pdv-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-color);
+  padding: var(--s-3);
+  gap: var(--s-3);
+  overflow: hidden;
+}
+
+.pdv-main {
+  display: flex;
+  gap: var(--s-3);
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Left: Cart Section ── */
+.cart-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  min-width: 0;
+}
+
+.cart-header {
+  padding: var(--s-4) var(--s-5);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.cart-header h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: var(--font-heading);
+}
+
+.item-count {
+  background-color: var(--surface-hover);
+  border: 1px solid var(--border-color);
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.cart-items {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── Empty Cart ── */
+.empty-cart {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  gap: var(--s-2);
+  text-align: center;
+  padding: var(--s-8);
+}
+
+.empty-cart p:first-of-type {
+  font-size: 1rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.empty-cart p:last-of-type {
+  font-size: 0.875rem;
+  color: var(--text-dim);
+}
+
+/* ── Cart Table ── */
+.cart-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cart-table th {
+  position: sticky;
+  top: 0;
+  background-color: var(--surface-color);
+  padding: var(--s-2) var(--s-4);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+  z-index: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cart-table td {
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+  font-size: 0.9rem;
+}
+
+.cart-table tr:hover td {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.product-name {
+  font-weight: 500;
+  color: var(--text-main);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Barcode Section ── */
+.barcode-section {
+  padding: var(--s-3) var(--s-4);
+  border-top: 1px solid var(--border-color);
+  background-color: var(--surface-hover);
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
+  flex-shrink: 0;
+}
+
+.barcode-form {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.input-wrapper {
+  flex: 1;
+  position: relative;
+}
+
+.barcode-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-dim);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.barcode-input {
+  padding-left: 44px;
+  font-size: 1rem;
+  height: 46px;
+  background-color: var(--bg-color);
+  border-color: var(--border-strong);
+}
+
+.barcode-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px var(--primary-subtle);
+}
+
+/* ── Suggestions ── */
+.suggestions-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.2s ease-out;
+}
+
+.suggestion-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--s-3) var(--s-4);
+  cursor: pointer;
+  transition: background-color var(--t-fast);
+  border-bottom: 1px solid var(--border-color);
+  gap: var(--s-3);
+}
+
+.suggestion-item:last-child { border-bottom: none; }
+
+.suggestion-item:hover { background-color: var(--surface-hover); }
+
+.suggestion-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.suggestion-name {
+  font-weight: 600;
+  color: var(--text-main);
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.suggestion-barcode {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-family: monospace;
+}
+
+.suggestion-price {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  white-space: nowrap;
+}
+
+.suggestion-avulso {
+  background-color: var(--primary-subtle);
+  border-left: 3px solid var(--primary-color);
+}
+
+.suggestion-avulso .suggestion-name {
+  color: var(--primary-color);
+}
+
+/* ── Right: Actions Section ── */
+.actions-section {
+  width: 320px;
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  flex-shrink: 0;
+}
+
+/* ── Totals ── */
+.totals-card {
+  padding: var(--s-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.totals-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.divider {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: var(--s-2) 0;
+}
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--s-2);
+}
+
+.total-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.total-value {
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--primary-color);
+  line-height: 1;
+  filter: drop-shadow(0 0 8px var(--primary-glow));
+}
+
+/* ── Action Buttons ── */
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  flex: 1;
+}
+
+.action-btn {
+  height: 72px;
+  justify-content: flex-start;
+  padding: 0 var(--s-5);
+  font-size: 1rem;
+  font-weight: 600;
+  gap: var(--s-3);
+  position: relative;
+  border-radius: var(--radius-lg);
+}
+
+.action-btn .shortcut {
+  position: absolute;
+  right: var(--s-4);
+  font-size: 0.72rem;
+  font-weight: 700;
+  opacity: 0.5;
+  font-family: monospace;
+  letter-spacing: 0.05em;
+}
+
+/* Checkout modal wider */
+.modal-content.checkout-modal {
+  max-width: 460px;
+}
+
+/* Payment method toggle */
+.payment-toggle {
+  display: flex;
+  gap: var(--s-2);
+}
+
+.payment-btn {
+  flex: 1;
+  padding: var(--s-4) var(--s-3);
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--border-color);
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--t-fast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-1);
+}
+
+.payment-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--text-main);
+}
+
+.payment-btn.active {
+  border-color: var(--primary-color);
+  background-color: var(--primary-subtle);
+  color: var(--primary-color);
+}
+
+.payment-btn-icon {
+  font-size: 1.4rem;
+}
+
+/* Change display */
+.change-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--s-3) var(--s-4);
+  background-color: var(--status-success-bg);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: var(--radius-md);
+  margin-top: var(--s-3);
+}
+
+.change-display .change-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--status-success);
+  font-family: var(--font-heading);
+}
