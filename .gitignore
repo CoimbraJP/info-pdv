@@ -31,3 +31,6 @@ dist-ssr
 
 # PWA dev artifacts
 dev-dist
+
+# Artefatos temporários de compartilhamento de pasta
+.fuse_hidden*

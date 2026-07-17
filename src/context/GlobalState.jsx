@@ -8,6 +8,12 @@ import { buildBackupPayload, downloadBackup } from '../utils/backup';
 /** Intervalo do backup automático em arquivo (1×/dia na primeira abertura). */
 const AUTO_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Trava por carregamento de página: o StrictMode (dev) monta o app 2×,
+ * o que disparava o backup em duplicidade antes do meta ser gravado.
+ */
+let autoBackupTriggered = false;
+
 const GlobalStateContext = createContext();
 
 /* ── Dados iniciais (apenas no primeiro uso) ── */
@@ -235,7 +241,12 @@ export const GlobalProvider = ({ children }) => {
       // O sync não protege contra deleção propagada; o arquivo local sim.
       const lastBackupAt = metaRef.current.lastBackupAt || 0;
       const hasData = (salesRef.current?.length || 0) + (osRef.current?.length || 0) > 0;
-      if (hasData && Date.now() - lastBackupAt > AUTO_BACKUP_INTERVAL_MS) {
+      if (!autoBackupTriggered && hasData && Date.now() - lastBackupAt > AUTO_BACKUP_INTERVAL_MS) {
+        autoBackupTriggered = true;
+        // Grava o meta ANTES do download (e espera confirmar) para que uma
+        // remontagem/reabertura não dispare backups repetidos no mesmo dia.
+        metaRef.current = { ...metaRef.current, lastBackupAt: Date.now() };
+        await dbSet(KEYS.meta, metaRef.current);
         try {
           downloadBackup(buildBackupPayload({
             products: productsRef.current,
@@ -243,8 +254,6 @@ export const GlobalProvider = ({ children }) => {
             sales: salesRef.current,
             settings: settingsRef.current,
           }), { auto: true });
-          metaRef.current = { ...metaRef.current, lastBackupAt: Date.now() };
-          dbSet(KEYS.meta, metaRef.current);
         } catch (err) {
           console.warn('[backup] backup automático falhou:', err);
         }
