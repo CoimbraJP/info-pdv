@@ -60,13 +60,29 @@ async function applyTombstones(tombstones, serverTime) {
 }
 
 export default async function handler(req, res) {
-  // CORS (uso local / dev em outra porta)
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // CORS: em produção (Vercel) front e API estão no mesmo domínio e não é
+  // necessário liberar nada. Para dev em outra porta, defina ALLOWED_ORIGIN.
+  const allowedOrigin = process.env.ALLOWED_ORIGIN || '';
+  if (allowedOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  }
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Autenticação: token obrigatório. Sem SYNC_TOKEN configurado, a API
+  // recusa tudo (fail-closed) em vez de ficar aberta ao público.
+  const expected = process.env.SYNC_TOKEN;
+  if (!expected) {
+    console.error('[api/sync] SYNC_TOKEN não configurado — recusando requisição.');
+    return res.status(503).json({ error: 'Sync não configurado no servidor' });
+  }
+  if (req.headers.authorization !== `Bearer ${expected}`) {
+    return res.status(401).json({ error: 'Não autorizado' });
+  }
 
   try {
     await connectDB();

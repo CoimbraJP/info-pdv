@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Receipt, Printer, Calendar, TrendingUp, ChevronDown, ChevronRight } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
-import { formatCurrency, formatDateTime } from '../utils/formatters';
+import { formatCurrency, formatDateTime, formatDate, parseDate } from '../utils/formatters';
 import './OS.css';
 
 const paymentLabel = (method) => ({ cartao: 'Cartão / PIX', dinheiro: 'Dinheiro' }[method] || method);
@@ -54,18 +54,49 @@ const vendaStyles = `
 .venda-summary-bar strong { color: var(--text-main); }
 `;
 
+const PERIOD_OPTIONS = [
+  { id: 'hoje', label: 'Hoje' },
+  { id: '7d',   label: '7 dias' },
+  { id: '30d',  label: '30 dias' },
+];
+
 const Vendas = () => {
   const { sales, settings } = useGlobalState();
   const [selectedSale, setSelectedSale] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
+  const [period, setPeriod] = useState('hoje');
+  const [customDate, setCustomDate] = useState(''); // 'YYYY-MM-DD' — dia específico
 
-  const today = new Date().toLocaleDateString('pt-BR');
-  const todaySales = sales
-    .filter(s => new Date(s.date).toLocaleDateString('pt-BR') === today)
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+  // Intervalo [start, end) do período selecionado + derivações (memoizado:
+  // com histórico grande, refazer filter+sort a cada render sai caro)
+  const { filteredSales, periodLabel, totalPeriod, totalItens } = useMemo(() => {
+    const dayStart = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
+    let start, end;
+    if (customDate) {
+      start = dayStart(customDate + 'T12:00:00');
+      end = start + 86400000;
+    } else {
+      const days = period === '7d' ? 7 : period === '30d' ? 30 : 1;
+      end = Infinity; // períodos relativos não têm limite superior
+      start = dayStart(new Date()) - (days - 1) * 86400000;
+    }
 
-  const totalToday = todaySales.reduce((acc, s) => acc + s.total, 0);
-  const totalItens = todaySales.reduce((acc, s) => acc + (s.items?.length || 0), 0);
+    const filtered = sales
+      .filter(s => {
+        const t = parseDate(s.date)?.getTime() ?? NaN;
+        return t >= start && t < end;
+      })
+      .sort((a, b) => (parseDate(b.date)?.getTime() ?? 0) - (parseDate(a.date)?.getTime() ?? 0));
+
+    return {
+      filteredSales: filtered,
+      periodLabel: customDate
+        ? formatDate(customDate + 'T12:00:00')
+        : PERIOD_OPTIONS.find(p => p.id === period)?.label || 'Hoje',
+      totalPeriod: filtered.reduce((acc, s) => acc + s.total, 0),
+      totalItens: filtered.reduce((acc, s) => acc + (s.items?.length || 0), 0),
+    };
+  }, [sales, period, customDate]);
 
   const handleReprint = (e, sale) => {
     e.stopPropagation();
@@ -90,19 +121,39 @@ const Vendas = () => {
           Histórico de Vendas
         </h2>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3" style={{ flexWrap: 'wrap' }}>
+          {/* Seletor de período — antes só era possível ver as vendas de hoje */}
+          <div className="flex gap-xs bg-surface p-1 rounded-md border border-color">
+            {PERIOD_OPTIONS.map(opt => (
+              <button
+                key={opt.id}
+                className={`btn btn-sm ${period === opt.id && !customDate ? 'btn-primary' : 'btn-surface'}`}
+                onClick={() => { setPeriod(opt.id); setCustomDate(''); }}
+              >
+                {opt.label}
+              </button>
+            ))}
+            <input
+              type="date"
+              className="input"
+              style={{ height: '32px', padding: '0 8px', fontSize: '0.8rem', width: '140px' }}
+              value={customDate}
+              onChange={e => setCustomDate(e.target.value)}
+              title="Ver vendas de um dia específico"
+            />
+          </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-surface-hover rounded" style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)' }}>
             <TrendingUp size={16} className="text-success" />
             <div>
               <div className="text-xs text-muted uppercase tracking-wide">Faturamento</div>
-              <div className="font-bold text-success">{formatCurrency(totalToday)}</div>
+              <div className="font-bold text-success">{formatCurrency(totalPeriod)}</div>
             </div>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-surface-hover rounded" style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)' }}>
             <Calendar size={16} className="text-muted" />
             <div>
-              <div className="text-xs text-muted uppercase tracking-wide">Vendas Hoje</div>
-              <div className="font-bold">{todaySales.length}</div>
+              <div className="text-xs text-muted uppercase tracking-wide">Vendas · {periodLabel}</div>
+              <div className="font-bold">{filteredSales.length}</div>
             </div>
           </div>
         </div>
@@ -111,21 +162,21 @@ const Vendas = () => {
       <div className="module-body">
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
 
-          {todaySales.length === 0 ? (
+          {filteredSales.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted">
               <Receipt size={44} className="opacity-50" />
-              <p className="font-medium">Nenhuma venda registrada hoje</p>
+              <p className="font-medium">Nenhuma venda no período ({periodLabel})</p>
               <p className="text-sm text-dim">As vendas do PDV aparecem aqui automaticamente</p>
             </div>
           ) : (
             <>
               {/* Summary bar */}
               <div className="venda-summary-bar">
-                <span>{todaySales.length} venda{todaySales.length !== 1 ? 's' : ''}</span>
+                <span>{filteredSales.length} venda{filteredSales.length !== 1 ? 's' : ''}</span>
                 <span>·</span>
                 <span>{totalItens} iten{totalItens !== 1 ? 's' : ''} vendido{totalItens !== 1 ? 's' : ''}</span>
                 <span>·</span>
-                <span>Total: <strong>{formatCurrency(totalToday)}</strong></span>
+                <span>Total: <strong>{formatCurrency(totalPeriod)}</strong></span>
                 <span style={{ marginLeft: 'auto', fontSize: '0.72rem' }}>
                   Clique em uma venda para ver os itens
                 </span>
@@ -136,7 +187,7 @@ const Vendas = () => {
                   <thead>
                     <tr>
                       <th style={{ width: '28px' }}></th>
-                      <th>Horário</th>
+                      <th>Data / Hora</th>
                       <th>Nº Venda</th>
                       <th>Itens</th>
                       <th>Pagamento</th>
@@ -145,9 +196,9 @@ const Vendas = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {todaySales.map(sale => {
+                    {filteredSales.map(sale => {
                       const isExpanded = expandedId === sale.id;
-                      const timeStr = formatDateTime(sale.date).split(' ')[1] || '--:--';
+                      const timeStr = formatDateTime(sale.date);
                       return (
                         <React.Fragment key={sale.id}>
                           {/* ── Main Row ── */}

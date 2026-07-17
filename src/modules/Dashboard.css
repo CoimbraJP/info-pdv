@@ -261,9 +261,10 @@
 }
 .pay-fill {
   height: 100%;
+  width: 100%;
+  transform-origin: left center;
   border-radius: var(--radius-pill);
-  transition: width var(--t-normal);
-  min-width: 2px;
+  transition: transform var(--t-normal);
 }
 .pay-card { background: var(--status-info); }
 .pay-cash { background: var(--status-success); }

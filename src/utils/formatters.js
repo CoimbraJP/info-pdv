@@ -19,13 +19,28 @@ export const formatCPF = (value) => {
 };
 
 /**
+ * Converte para Date interpretando corretamente registros antigos gravados
+ * como "dd/mm/aaaa" (que o `new Date()` do JS leria como mês/dia — bug real
+ * que fazia o Dashboard contar OS no mês errado). Novos registros são ISO.
+ * Retorna null se não for uma data válida.
+ */
+export const parseDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return isNaN(value) ? null : value;
+  const br = String(value).match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (br) return new Date(Number(br[3]), Number(br[2]) - 1, Number(br[1]), 12, 0, 0);
+  const d = new Date(value);
+  return isNaN(d) ? null : d;
+};
+
+/**
  * Formats a date string or Date object to pt-BR locale date + time.
  * Returns: "05/05/2026 14:30"
  */
 export const formatDateTime = (value) => {
   if (!value) return '-';
-  const date = new Date(value);
-  if (isNaN(date)) return String(value);
+  const date = parseDate(value);
+  if (!date) return String(value);
   return date.toLocaleString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -41,7 +56,7 @@ export const formatDateTime = (value) => {
  */
 export const formatDate = (value) => {
   if (!value) return '-';
-  const date = new Date(value);
-  if (isNaN(date)) return String(value);
+  const date = parseDate(value);
+  if (!date) return String(value);
   return date.toLocaleDateString('pt-BR');
 };

@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
-import { Plus, Search, Filter, Wrench, User, FileText, CheckCircle, Clock, Printer, LayoutGrid, List, Trash2, AlertCircle } from 'lucide-react';
-import { formatCurrency } from '../utils/formatters';
+import { useState, useRef } from 'react';
+import { Plus, Search, Wrench, User, FileText, CheckCircle, Clock, Printer, LayoutGrid, List, Trash2, AlertCircle } from 'lucide-react';
+import { formatCurrency, formatDate } from '../utils/formatters';
 import { useGlobalState } from '../context/GlobalState';
 import './OS.css';
 
@@ -9,9 +9,8 @@ const OS = () => {
   const [activeTab, setActiveTab] = useState('list'); // 'list' | 'new'
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
   const [cardSize, setCardSize] = useState('medium'); // 'small' | 'medium' | 'large'
-  const [editTab, setEditTab] = useState('details'); // 'details' | 'services'
   const [filter, setFilter] = useState('all');
-  const [expandedId, setExpandedId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [editingOS, setEditingOS] = useState(null);
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [serviceItems, setServiceItems] = useState([]);
@@ -30,21 +29,35 @@ const OS = () => {
   });
   const numberInputRef = useRef(null);
 
+  /**
+   * Próximo número de OS: sequência baseada no maior ID numérico existente.
+   * (O esquema antigo — últimos 4 dígitos do timestamp — repetia a cada 10s
+   * e o sync mescla por ID, então uma OS podia sobrescrever outra.)
+   */
+  const nextOsId = () => {
+    const max = osList.reduce((m, os) => {
+      const n = parseInt(os.id, 10);
+      return Number.isFinite(n) ? Math.max(m, n) : m;
+    }, 1000);
+    return String(max + 1);
+  };
+
   const handleSave = (e) => {
     e.preventDefault();
-    
+
     const newOs = {
-      id: Date.now().toString().slice(-4), // Simple 4-digit ID
+      id: nextOsId(),
       client: formData.clientName,
       device: `${formData.deviceType} ${formData.deviceBrand}`,
       status: 'Em análise',
-      date: new Date().toLocaleDateString('pt-BR'),
+      date: new Date().toISOString(), // sempre ISO; formatar só na exibição
       clientPhone: formData.clientPhone,
       clientCPF: formData.clientCPF,
       deviceFull: `${formData.deviceType} ${formData.deviceBrand} - S/N: ${formData.deviceSN}`,
       devicePassword: formData.devicePassword,
       defect: formData.defect,
       accessories: accessories,
+      services: [],
       serviceValue: 0,
       readyDate: ''
     };
@@ -65,44 +78,40 @@ const OS = () => {
 
   const handleEdit = (os) => {
     setIsDeviceExpanded(false);
+    // Carrega o registro REAL, sem fallbacks inventados (o código anterior
+    // injetava CPF/telefone/serviços fictícios que eram gravados por cima
+    // dos dados verdadeiros ao salvar).
     setEditingOS({
       ...os,
-      clientPhone: os.clientPhone || '12999999999',
-      clientCPF: os.clientCPF || '000.000.000-00',
-      entryDate: os.date || '2026-05-02',
+      entryDate: os.date || '',
       readyDate: os.readyDate || '',
       serviceValue: os.serviceValue || 0,
-      deviceFull: os.deviceFull || 'Notebook Dell Inspiron 15 3000 - S/N: ABC123XYZ',
-      devicePassword: os.devicePassword || 'Não informada',
-      defect: os.defect || 'Não informado',
-      accessories: os.accessories || 'Nenhum',
-      status: os.status || 'Em análise'
+      deviceFull: os.deviceFull || os.device || '',
+      status: os.status || 'Em análise',
     });
-    setServiceItems([
-      { id: 1, description: 'Limpeza Interna', price: 80.00 },
-      { id: 2, description: 'Pasta Térmica MX-4', price: 45.00 }
-    ]);
+    setServiceItems(Array.isArray(os.services) ? os.services : []);
   };
 
   const closeEdit = () => {
     setEditingOS(null);
   };
 
-  const handleCloseOS = () => {
+  // Persiste também a LISTA de serviços (antes só o total era salvo e o
+  // detalhamento do que foi feito no equipamento se perdia ao fechar a tela).
+  const persistEditing = (extra = {}) => {
     if (!editingOS) return;
-    const updatedOS = { ...editingOS, status: 'Encerrado' };
-    const updatedList = osList.map(os => os.id === updatedOS.id ? updatedOS : os);
-    setOsList(updatedList);
+    const updatedOS = {
+      ...editingOS,
+      services: serviceItems,
+      serviceValue: totalServices,
+      ...extra,
+    };
+    setOsList(prev => prev.map(os => (os.id === updatedOS.id ? updatedOS : os)));
     setEditingOS(null);
   };
 
-  const saveEdit = () => {
-    if (!editingOS) return;
-    const updatedOS = { ...editingOS, serviceValue: totalServices };
-    const updatedList = osList.map(os => os.id === updatedOS.id ? updatedOS : os);
-    setOsList(updatedList);
-    setEditingOS(null);
-  };
+  const handleCloseOS = () => persistEditing({ status: 'Encerrado' });
+  const saveEdit = () => persistEditing();
 
   const addServiceItem = () => {
     if (!newItem.description || !newItem.price) return;
@@ -129,16 +138,6 @@ const OS = () => {
   };
 
   const totalServices = serviceItems.reduce((acc, item) => acc + item.price, 0);
-
-  const handleTopServiceValueChange = (val) => {
-    const numericVal = parseFloat(val) || 0;
-    setEditingOS(prev => ({ ...prev, serviceValue: numericVal }));
-    
-    // Auto-create service to balance
-    if (serviceItems.length === 0) {
-      setServiceItems([{ id: Date.now(), description: 'SERVIÇO AVULSO', price: numericVal }]);
-    }
-  };
 
   const handleCEPChange = async (value) => {
     const cleanCEP = value.replace(/\D/g, '');
@@ -191,7 +190,18 @@ const OS = () => {
   };
 
 
+  const matchesSearch = (os) => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return true;
+    return [os.client, os.id, os.device, os.deviceFull, os.clientPhone, os.clientCPF]
+      .some((field) => String(field || '').toLowerCase().includes(term));
+  };
+
   const filteredOS = osList.filter(os => {
+    if (!matchesSearch(os)) return false;
+    // Com busca ativa, procura em TODAS as OS (inclusive encerradas) —
+    // é justamente para achar uma OS antiga que o operador busca.
+    if (searchTerm.trim()) return true;
     if (filter === 'maintenance') return os.status === 'Em análise' || os.status === 'Aguardando Aprovação / Peças';
     if (filter === 'ready') return os.status === 'Pronto Avisar Cliente.';
     if (filter === 'marcondes') return os.status === 'Marcondes';
@@ -237,7 +247,13 @@ const OS = () => {
               <div className="flex justify-between items-center w-full">
                 <div className="search-bar">
                   <Search size={20} className="text-muted" />
-                  <input type="text" className="input" placeholder="Buscar OS por cliente, número ou equipamento..." />
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="Buscar OS por cliente, número, equipamento, telefone ou CPF..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </div>
 
                 <div className="flex gap-4 items-center">
@@ -321,7 +337,7 @@ const OS = () => {
                             </div>
                             <div className="os-info-row">
                               <Clock size={16} className="text-muted" />
-                              <span>{os.date}</span>
+                              <span>{formatDate(os.date)}</span>
                             </div>
                             <div className="os-info-row mt-1 pt-1" style={{ borderTop: '1px solid var(--border-color)' }}>
                               <AlertCircle size={16} className="text-danger" />
@@ -356,7 +372,7 @@ const OS = () => {
                         <td className="font-bold">#{os.id}</td>
                         <td>{os.client}</td>
                         <td>{os.device}</td>
-                        <td>{os.date}</td>
+                        <td>{formatDate(os.date)}</td>
                         <td>
                           <span className={`status-badge ${getStatusColor(os.status)}`}>{os.status}</span>
                         </td>
@@ -424,11 +440,11 @@ const OS = () => {
                   <div className="grid grid-cols-2 gap-6 pt-2">
                     <div>
                        <span className="text-muted text-xs uppercase tracking-wide block mb-1">Data Entrada</span>
-                       <span className="font-medium text-main">{editingOS.entryDate ? new Date(editingOS.entryDate + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}</span>
+                       <span className="font-medium text-main">{formatDate(editingOS.entryDate)}</span>
                     </div>
                     <div>
                        <span className="text-muted text-xs uppercase tracking-wide block mb-1">Data de Saída (Pronto)</span>
-                       <span className="font-medium text-main">{editingOS.readyDate ? new Date(editingOS.readyDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Pendente'}</span>
+                       <span className="font-medium text-main">{editingOS.readyDate ? formatDate(editingOS.readyDate) : 'Pendente'}</span>
                     </div>
                   </div>
                 </div>
@@ -443,15 +459,10 @@ const OS = () => {
                     value={editingOS.status}
                     onChange={(e) => {
                       const newStatus = e.target.value;
-                      let newReadyDate = editingOS.readyDate;
-                      
-                      if (newStatus === 'Pronto Avisar Cliente.') {
-                        newReadyDate = new Date().toISOString().split('T')[0];
-                      } else {
-                        newReadyDate = '';
-                      }
-                      
-                      setEditingOS({...editingOS, status: newStatus, readyDate: newReadyDate});
+                      const newReadyDate = newStatus === 'Pronto Avisar Cliente.'
+                        ? new Date().toISOString().split('T')[0]
+                        : '';
+                      setEditingOS({ ...editingOS, status: newStatus, readyDate: newReadyDate });
                     }}
                   >
                     <option value="Em análise">Em análise</option>
@@ -493,15 +504,15 @@ const OS = () => {
                     <div className="mt-4 pt-4 border-top grid grid-cols-2 gap-md text-sm w-full">
                       <div className="w-full">
                         <span className="text-muted block mb-1">Senha:</span>
-                        <span className="font-medium text-lg">{editingOS.devicePassword}</span>
+                        <span className="font-medium text-lg">{editingOS.devicePassword || 'Não informada'}</span>
                       </div>
                       <div className="w-full">
                         <span className="text-muted block mb-1">Acessórios:</span>
-                        <span className="font-medium text-lg">{editingOS.accessories}</span>
+                        <span className="font-medium text-lg">{editingOS.accessories || 'Nenhum'}</span>
                       </div>
                       <div className="col-span-2 mt-2 w-full">
                         <span className="text-muted block mb-1">Defeito Relatado:</span>
-                        <p className="bg-background p-3 rounded border border-color mt-1 text-md">{editingOS.defect}</p>
+                        <p className="bg-background p-3 rounded border border-color mt-1 text-md">{editingOS.defect || 'Não informado'}</p>
                       </div>
                     </div>
                   )}

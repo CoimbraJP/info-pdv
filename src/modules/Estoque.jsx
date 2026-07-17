@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Package, Search, Plus, Edit2, Trash2, X, Check, AlertTriangle } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
 import { formatCurrency } from '../utils/formatters';

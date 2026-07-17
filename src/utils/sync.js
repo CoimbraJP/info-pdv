@@ -14,6 +14,11 @@ const API_BASE = (import.meta.env?.VITE_API_URL || '').replace(/\/$/, '');
 
 export const SYNC_URL = `${API_BASE}/api/sync`;
 
+// Token de acesso à API de sync (mesmo valor de SYNC_TOKEN no servidor).
+// Observação: por estar no bundle do front, ele impede acesso público à API,
+// mas não substitui um login por usuário (planejado no roadmap).
+const SYNC_TOKEN = import.meta.env?.VITE_SYNC_TOKEN || '';
+
 /**
  * Faz uma rodada de push/pull.
  * @param {object} payload { lastSyncAt, products, sales, serviceOrders, settings, tombstones }
@@ -22,7 +27,10 @@ export const SYNC_URL = `${API_BASE}/api/sync`;
 export async function pushPull(payload, { signal } = {}) {
   const res = await fetch(SYNC_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(SYNC_TOKEN ? { Authorization: `Bearer ${SYNC_TOKEN}` } : {}),
+    },
     body: JSON.stringify(payload),
     signal,
   });

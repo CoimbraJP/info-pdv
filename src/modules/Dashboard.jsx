@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   DollarSign, TrendingUp, Package, Wrench, ArrowUpRight, ArrowDownRight,
   Calendar, BarChart2, Receipt, CreditCard, Banknote, ClipboardList,
 } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, parseDate } from '../utils/formatters';
 import './Dashboard.css';
 
 const PERIODS = [
@@ -47,7 +47,7 @@ function buildBuckets(period, sales) {
       });
     }
     sales.forEach((s) => {
-      const t = new Date(s.date).getTime();
+      const t = parseDate(s.date)?.getTime() ?? NaN;
       const b = buckets.find((b) => t >= b.start && t < b.end);
       if (b) b.total += s.total;
     });
@@ -66,7 +66,9 @@ function buildBuckets(period, sales) {
   const startTs = new Date(base); startTs.setDate(startTs.getDate() - (days - 1));
   const start = startTs.getTime();
   sales.forEach((s) => {
-    const sd = new Date(s.date); sd.setHours(0, 0, 0, 0);
+    const sd = parseDate(s.date);
+    if (!sd) return;
+    sd.setHours(0, 0, 0, 0);
     const idx = Math.round((sd.getTime() - start) / 86400000);
     if (idx >= 0 && idx < buckets.length) buckets[idx].total += s.total;
   });
@@ -123,8 +125,10 @@ const Dashboard = () => {
 
   const m = useMemo(() => {
     const start = periodStartTs(period);
-    const salesInPeriod = sales.filter((s) => new Date(s.date).getTime() >= start);
-    const osInPeriod = osList.filter((o) => new Date(o.date).getTime() >= start);
+    // parseDate lida com registros antigos em "dd/mm/aaaa" (que o new Date()
+    // interpretava como mês/dia, jogando OS no período errado).
+    const salesInPeriod = sales.filter((s) => (parseDate(s.date)?.getTime() ?? 0) >= start);
+    const osInPeriod = osList.filter((o) => (parseDate(o.date)?.getTime() ?? 0) >= start);
 
     const productRevenue = salesInPeriod.reduce((acc, s) => acc + (s.total || 0), 0);
     const numSales = salesInPeriod.length;
@@ -333,14 +337,14 @@ const Dashboard = () => {
                 <span><CreditCard size={15} className="text-info" /> Cartão / PIX</span>
                 <strong>{formatCurrency(m.byCard)}</strong>
               </div>
-              <div className="pay-bar"><div className="pay-fill pay-card" style={{ width: `${(m.byCard / payMax) * 100}%` }} /></div>
+              <div className="pay-bar"><div className="pay-fill pay-card" style={{ transform: `scaleX(${m.byCard / payMax})` }} /></div>
             </div>
             <div className="pay-row">
               <div className="pay-head">
                 <span><Banknote size={15} className="text-success" /> Dinheiro</span>
                 <strong>{formatCurrency(m.byCash)}</strong>
               </div>
-              <div className="pay-bar"><div className="pay-fill pay-cash" style={{ width: `${(m.byCash / payMax) * 100}%` }} /></div>
+              <div className="pay-bar"><div className="pay-fill pay-cash" style={{ transform: `scaleX(${m.byCash / payMax})` }} /></div>
             </div>
           </div>
 

@@ -231,7 +231,7 @@
 
 .suggestion-avulso {
   background-color: var(--primary-subtle);
-  border-left: 3px solid var(--primary-color);
+  border-top: 1px solid var(--border-color);
 }
 
 .suggestion-avulso .suggestion-name {

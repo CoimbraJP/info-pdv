@@ -1,8 +1,12 @@
-import React, { createContext, useState, useEffect, useContext, useRef, useCallback } from 'react';
+import { createContext, useState, useEffect, useContext, useRef, useCallback } from 'react';
 import {
   KEYS, STORE, dbGet, dbSet, migrateFromLocalStorage, diffStamp, mergeRemote,
 } from '../utils/db';
 import { pushPull, isOnline } from '../utils/sync';
+import { buildBackupPayload, downloadBackup } from '../utils/backup';
+
+/** Intervalo do backup automático em arquivo (1×/dia na primeira abertura). */
+const AUTO_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 const GlobalStateContext = createContext();
 
@@ -93,7 +97,9 @@ export const GlobalProvider = ({ children }) => {
 
   /* ── Operações de negócio ── */
   const addSale = (saleData) => {
-    setSales((prev) => [...prev, { id: Date.now(), ...saleData, date: new Date().toISOString() }]);
+    // UUID: Date.now() podia colidir entre dois terminais e o merge por id
+    // do sync descartaria uma das vendas silenciosamente.
+    setSales((prev) => [...prev, { id: crypto.randomUUID(), ...saleData, date: new Date().toISOString() }]);
     // Baixa de estoque dos itens que não são avulsos
     setProducts((prevProducts) => {
       const updated = [...prevProducts];
@@ -225,6 +231,25 @@ export const GlobalProvider = ({ children }) => {
       metaRef.current = meta || { lastSyncAt: 0 };
       setLastSyncAt(meta?.lastSyncAt || 0);
 
+      // ── Backup automático diário em arquivo ──
+      // O sync não protege contra deleção propagada; o arquivo local sim.
+      const lastBackupAt = metaRef.current.lastBackupAt || 0;
+      const hasData = (salesRef.current?.length || 0) + (osRef.current?.length || 0) > 0;
+      if (hasData && Date.now() - lastBackupAt > AUTO_BACKUP_INTERVAL_MS) {
+        try {
+          downloadBackup(buildBackupPayload({
+            products: productsRef.current,
+            osList: osRef.current,
+            sales: salesRef.current,
+            settings: settingsRef.current,
+          }), { auto: true });
+          metaRef.current = { ...metaRef.current, lastBackupAt: Date.now() };
+          dbSet(KEYS.meta, metaRef.current);
+        } catch (err) {
+          console.warn('[backup] backup automático falhou:', err);
+        }
+      }
+
       runSync();
     })();
     return () => { mounted = false; };
@@ -259,6 +284,7 @@ export const GlobalProvider = ({ children }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components -- padrão Provider+hook no mesmo arquivo; sem impacto em produção
 export const useGlobalState = () => {
   const ctx = useContext(GlobalStateContext);
   if (!ctx) throw new Error('useGlobalState must be used within GlobalProvider');

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Trash2, CreditCard, Tag, X, ShoppingCart, Pencil, Banknote, QrCode } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Search, Plus, Trash2, CreditCard, Tag, X, ShoppingCart, Pencil } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { useGlobalState } from '../context/GlobalState';
 import './PDV.css';
@@ -39,8 +39,8 @@ const PDV = () => {
     setBarcode(value);
     if (value.trim().length >= 1) {
       const filtered = products.filter(p =>
-        p.name.toLowerCase().includes(value.toLowerCase()) ||
-        p.barcode.includes(value)
+        (p.name || '').toLowerCase().includes(value.toLowerCase()) ||
+        (p.barcode || '').includes(value)
       );
       setSuggestions([...filtered, { id: 'avulso', name: 'Adicionar item avulso...', barcode: '' }]);
       setShowSuggestions(true);
@@ -86,7 +86,7 @@ const PDV = () => {
       ));
     } else {
       addToCart({
-        id: Date.now(),
+        id: crypto.randomUUID(),
         name: avulsoItem.name,
         price: parseFloat(avulsoItem.price),
         isAvulso: true

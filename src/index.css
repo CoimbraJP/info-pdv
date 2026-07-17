@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap');
 
 /* ==========================================================================
    INFO CENTRO — DESIGN SYSTEM
@@ -8,11 +8,11 @@
 
 :root {
   /* ── Colors — Premium Deep Dark ── */
-  --bg-color:         #0A0A0A;
-  --surface-color:    #141414;
-  --surface-hover:    #1C1C1C;
-  --surface-active:   #252525;
-  --surface-glass:    rgba(20, 20, 20, 0.8);
+  --bg-color:         #0A0B0D;
+  --surface-color:    #15161A;
+  --surface-hover:    #1D1E23;
+  --surface-active:   #26282E;
+  --surface-glass:    rgba(21, 22, 26, 0.8);
 
   /* ── Brand ── */
   --primary-color:    #FFD700;
@@ -22,13 +22,13 @@
   --primary-subtle:   rgba(255, 215, 0, 0.08);
 
   /* ── Text ── */
-  --text-main:        #F0F0F0;
-  --text-muted:       #888888;
-  --text-dim:         #555555;
+  --text-main:        #F2F3F5;
+  --text-muted:       #8A8E97;
+  --text-dim:         #565A63;
 
   /* ── Border ── */
-  --border-color:     #232323;
-  --border-strong:    #333333;
+  --border-color:     #24262C;
+  --border-strong:    #35373F;
 
   /* ── Status ── */
   --status-success:   #22C55E;
@@ -41,8 +41,8 @@
   --status-info-bg:   rgba(59, 130, 246, 0.1);
 
   /* ── Typography ── */
-  --font-main:        'Inter', -apple-system, sans-serif;
-  --font-heading:     'Outfit', 'Inter', sans-serif;
+  --font-main:        'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-heading:     'Outfit', 'Hanken Grotesk', sans-serif;
 
   /* ── Spacing Scale ── */
   --s-1:  0.25rem;   /* 4px  */
@@ -115,16 +115,21 @@ body {
   background-color: var(--bg-color);
   color: var(--text-main);
   line-height: 1.6;
+  letter-spacing: 0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
 }
+
+/* Números tabulares: alinham preços e quantidades (POS) */
+table, .kpi-value { font-variant-numeric: tabular-nums; }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   font-weight: 600;
   color: var(--text-main);
   line-height: 1.3;
+  text-wrap: balance;
 }
 
 a {
@@ -552,7 +557,7 @@ input, select, textarea {
   overflow-y: auto;
   padding: var(--s-8);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7), 0 0 0 1px var(--border-strong);
-  animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: scaleUp 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ==========================================================================

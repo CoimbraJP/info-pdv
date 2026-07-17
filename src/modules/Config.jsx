@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Settings, Printer, Eye, Store, Check, Database, Download, Upload, RefreshCw } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
+import { buildBackupPayload, downloadBackup } from '../utils/backup';
 
 const THERMAL_MODELS = [
   {
@@ -152,22 +153,7 @@ const Config = () => {
   };
 
   const handleExport = () => {
-    const payload = {
-      app: 'INFO CENTRO',
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      data: { products, serviceOrders: osList, sales, settings },
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const stamp = new Date().toISOString().slice(0, 10);
-    a.href = url;
-    a.download = `infocentro-backup-${stamp}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadBackup(buildBackupPayload({ products, osList, sales, settings }));
     flashBackup({ type: 'ok', text: 'Backup exportado com sucesso.' });
   };
 
@@ -321,8 +307,10 @@ const Config = () => {
 
             <p className="text-sm text-muted mb-4">
               Exporte todos os dados (produtos, vendas, ordens de serviço e configurações) para um arquivo
-              JSON, ou restaure a partir de um backup. Os dados também são sincronizados automaticamente
-              com o banco na nuvem quando há internet.
+              JSON, ou restaure a partir de um backup. Além do sync com a nuvem, o sistema baixa
+              automaticamente <strong>um backup por dia</strong> na primeira abertura — guarde esses
+              arquivos fora deste computador (Drive, pendrive). O sync não substitui backup: uma
+              exclusão indevida se propaga para a nuvem; o arquivo é a cópia segura.
             </p>
 
             <div className="flex gap-3 mb-4" style={{ flexWrap: 'wrap' }}>

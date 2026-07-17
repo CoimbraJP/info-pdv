@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tela de Vendas - Nova OS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .header {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            color: #2d3436;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #636e72;
+            font-size: 14px;
+        }
+
+        .status-bar {
+            background: #f5f6fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #667eea;
+        }
+
+        .status-bar p {
+            color: #2d3436;
+            font-size: 13px;
+            margin: 5px 0;
+        }
+
+        .status-bar .label {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .buttons-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 16px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Botão Finalizar Venda */
+        .btn-finalizar {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        .btn-finalizar:hover {
+            box-shadow: 0 10px 25px rgba(46, 204, 113, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .btn-finalizar:focus {
+            outline: 2px solid #27ae60;
+            outline-offset: 2px;
+        }
+
+        /* Botão Aplicar Desconto */
+        .btn-desconto {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .btn-desconto:hover {
+            box-shadow: 0 10px 25px rgba(52, 152, 219, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .btn-desconto:focus {
+            outline: 2px solid #2980b9;
+            outline-offset: 2px;
+        }
+
+        /* Botão Cancelar Venda */
+        .btn-cancelar {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .btn-cancelar:hover {
+            box-shadow: 0 10px 25px rgba(231, 76, 60, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .btn-cancelar:focus {
+            outline: 2px solid #c0392b;
+            outline-offset: 2px;
+        }
+
+        /* Botão Nova OS - Full Width com destaque F1 */
+        .btn-nova-os {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            grid-column: 1 / -1;
+            font-size: 16px;
+            padding: 18px 24px;
+            position: relative;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-nova-os:hover {
+            box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
+            transform: translateY(-3px);
+        }
+
+        .btn-nova-os:focus {
+            outline: 2px solid #764ba2;
+            outline-offset: 2px;
+        }
+
+        .btn-nova-os .f1-indicator {
+            font-size: 11px;
+            font-weight: 700;
+            background: rgba(255, 255, 255, 0.25);
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-left: 10px;
+            display: inline-block;
+            letter-spacing: 1px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        /* Shortcut Info Box */
+        .shortcuts-info {
+            background: #f0f3ff;
+            border: 1px solid #d4d9f7;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #2d3436;
+        }
+
+        .shortcuts-info h4 {
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .shortcut-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid #e0e6ff;
+        }
+
+        .shortcut-item:last-child {
+            border-bottom: none;
+        }
+
+        .shortcut-key {
+            background: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid #d4d9f7;
+            font-weight: 600;
+            color: #667eea;
+            font-family: 'Courier New', monospace;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        /* Modal de Nova OS */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+            border-bottom: 2px solid #f5f6fa;
+            padding-bottom: 15px;
+        }
+
+        .modal-header h2 {
+            color: #2d3436;
+            font-size: 22px;
+        }
+
+        .modal-header p {
+            color: #636e72;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2d3436;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #ecf0f1;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .modal-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 25px;
+        }
+
+        .btn-secondary {
+            padding: 12px 16px;
+            border: 2px solid #ecf0f1;
+            background: white;
+            color: #2d3436;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            border-color: #bdc3c7;
+            background: #f5f6fa;
+        }
+
+        .btn-primary {
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 8px 25px rgba(46, 204, 113, 0.3);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            z-index: 2000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 25px;
+            }
+
+            .buttons-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .btn-finalizar,
+            .btn-desconto,
+            .btn-cancelar {
+                grid-column: 1;
+            }
+
+            .btn-nova-os {
+                grid-column: 1;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💼 Gestão de Vendas</h1>
+            <p>Sistema de Ponto de Venda Inteligente</p>
+        </div>
+
+        <div class="status-bar">
+            <p><span class="label">Total:</span> R$ 1.250,00</p>
+            <p><span class="label">Desconto:</span> R$ 0,00</p>
+            <p><span class="label">A Pagar:</span> R$ 1.250,00</p>
+        </div>
+
+        <div class="buttons-grid">
+            <button class="btn btn-finalizar" id="btnFinalizar">✓ Finalizar Venda</button>
+            <button class="btn btn-desconto" id="btnDesconto">% Aplicar Desconto</button>
+            <button class="btn btn-cancelar" id="btnCancelar">✕ Cancelar Venda</button>
+            <button class="btn btn-nova-os" id="btnNovaOS">
+                + Nova Ordem de Serviço
+                <span class="f1-indicator">F1</span>
+            </button>
+        </div>
+
+        <div class="shortcuts-info">
+            <h4>⌨️ Atalhos de Teclado</h4>
+            <div class="shortcut-item">
+                <span>Nova Ordem de Serviço</span>
+                <span class="shortcut-key">F1</span>
+            </div>
+            <div class="shortcut-item">
+                <span>Finalizar Venda</span>
+                <span class="shortcut-key">Ctrl+E</span>
+            </div>
+            <div class="shortcut-item">
+                <span>Aplicar Desconto</span>
+                <span class="shortcut-key">Ctrl+D</span>
+            </div>
+            <div class="shortcut-item">
+                <span>Cancelar Venda</span>
+                <span class="shortcut-key">Ctrl+X</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nova OS -->
+    <div class="modal" id="modalNovaOS">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📋 Nova Ordem de Serviço</h2>
+                <p>Preencha os dados abaixo para criar uma nova OS</p>
+            </div>
+
+            <form id="formOS">
+                <div class="form-group">
+                    <label for="clienteName">Nome do Cliente:</label>
+                    <input type="text" id="clienteName" name="clienteName" required placeholder="Digite o nome do cliente">
+                </div>
+
+                <div class="form-group">
+                    <label for="clientePhone">Telefone:</label>
+                    <input type="tel" id="clientePhone" name="clientePhone" required placeholder="(XX) XXXXX-XXXX">
+                </div>
+
+                <div class="form-group">
+                    <label for="serviceType">Tipo de Serviço:</label>
+                    <input type="text" id="serviceType" name="serviceType" required placeholder="Ex: Reparo, Manutenção, Consultoria">
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Descrição:</label>
+                    <textarea id="description" name="description" required placeholder="Descreva o serviço a ser realizado..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="estimatedValue">Valor Estimado:</label>
+                    <input type="number" id="estimatedValue" name="estimatedValue" step="0.01" placeholder="0,00">
+                </div>
+
+                <div class="modal-buttons">
+                    <button type="button" class="btn-secondary" id="btnCancel">Cancelar</button>
+                    <button type="submit" class="btn-primary">Criar OS</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Elements
+        const modalNovaOS = document.getElementById('modalNovaOS');
+        const btnNovaOS = document.getElementById('btnNovaOS');
+        const btnCancel = document.getElementById('btnCancel');
+        const formOS = document.getElementById('formOS');
+        const toast = document.getElementById('toast');
+
+        // Outros botões (exemplos de funcionalidade)
+        const btnFinalizar = document.getElementById('btnFinalizar');
+        const btnDesconto = document.getElementById('btnDesconto');
+        const btnCancelar = document.getElementById('btnCancelar');
+
+        // Função para abrir modal
+        function openModal() {
+            modalNovaOS.classList.add('active');
+            // Foca no primeiro campo para melhor UX
+            setTimeout(() => {
+                document.getElementById('clienteName').focus();
+            }, 300);
+        }
+
+        // Função para fechar modal
+        function closeModal() {
+            modalNovaOS.classList.remove('active');
+            formOS.reset();
+        }
+
+        // Função para mostrar toast
+        function showToast(message, type = 'success') {
+            toast.textContent = message;
+            toast.style.background = type === 'success'
+                ? 'linear-gradient(135deg, #2ecc71 0%, #27ae60 100%)'
+                : 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)';
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Event Listeners - Botão Nova OS
+        btnNovaOS.addEventListener('click', openModal);
+        btnCancel.addEventListener('click', closeModal);
+
+        // Fechar modal ao clicar fora
+        modalNovaOS.addEventListener('click', (e) => {
+            if (e.target === modalNovaOS) {
+                closeModal();
+            }
+        });
+
+        // Submeter formulário
+        formOS.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const clienteName = document.getElementById('clienteName').value;
+            const osNumber = Math.floor(Math.random() * 10000) + 1000;
+
+            showToast(`✓ OS #${osNumber} criada para ${clienteName}!`);
+            closeModal();
+
+            // Aqui você pode enviar os dados para o servidor
+            console.log('Nova OS criada:', {
+                numero: osNumber,
+                cliente: clienteName,
+                telefone: document.getElementById('clientePhone').value,
+                tipo: document.getElementById('serviceType').value,
+                descricao: document.getElementById('description').value,
+                valor: document.getElementById('estimatedValue').value
+            });
+        });
+
+        // Atalhos de teclado
+        document.addEventListener('keydown', (e) => {
+            // F1 para Nova OS
+            if (e.key === 'F1') {
+                e.preventDefault();
+                openModal();
+            }
+
+            // Ctrl+E para Finalizar Venda
+            if (e.ctrlKey && e.key === 'e') {
+                e.preventDefault();
+                btnFinalizar.click();
+                showToast('Venda finalizada com sucesso!');
+            }
+
+            // Ctrl+D para Aplicar Desconto
+            if (e.ctrlKey && e.key === 'd') {
+                e.preventDefault();
+                btnDesconto.click();
+                showToast('Desconto aplicado!');
+            }
+
+            // Ctrl+X para Cancelar Venda
+            if (e.ctrlKey && e.key === 'x') {
+                e.preventDefault();
+                btnCancelar.click();
+                showToast('Venda cancelada!', 'error');
+            }
+
+            // Escape para fechar modal
+            if (e.key === 'Escape' && modalNovaOS.classList.contains('active')) {
+                closeModal();
+            }
+        });
+
+        // Exemplos de funcionalidades dos outros botões
+        btnFinalizar.addEventListener('click', () => {
+            console.log('Finalizando venda...');
+        });
+
+        btnDesconto.addEventListener('click', () => {
+            console.log('Aplicando desconto...');
+        });
+
+        btnCancelar.addEventListener('click', () => {
+            console.log('Cancelando venda...');
+        });
+    </script>
+</body>
+</html>
