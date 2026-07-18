@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
 import { formatCurrency, parseDate } from '../utils/formatters';
+import { OS_STATUS, normalizeStatus } from '../constants/osStatus';
 import './Dashboard.css';
 
 const PERIODS = [
@@ -138,7 +139,7 @@ const Dashboard = () => {
     ), 0);
 
     const serviceRevenue = osInPeriod
-      .filter((o) => o.status === 'Encerrado')
+      .filter((o) => normalizeStatus(o.status) === OS_STATUS.ENCERRADO)
       .reduce((acc, o) => acc + (o.serviceValue || o.total || 0), 0);
 
     const totalRevenue = productRevenue + serviceRevenue;
@@ -160,11 +161,12 @@ const Dashboard = () => {
     }));
     const topProducts = Array.from(map.values()).sort((a, b) => b.qty - a.qty).slice(0, 5);
 
-    // OS
-    const osEmAndamento = osList.filter((o) => o.status === 'Em análise' || o.status === 'Aguardando Aprovação / Peças').length;
-    const osProntas = osList.filter((o) => o.status === 'Pronto Avisar Cliente.').length;
+    // OS — apenas 3 status: Em análise, Marcondes, Encerrado
+    const osEmAndamento = osList.filter((o) => normalizeStatus(o.status) === OS_STATUS.ANALISE).length;
+    const osMarcondes = osList.filter((o) => normalizeStatus(o.status) === OS_STATUS.MARCONDES).length;
+    // A receber = valor de serviço das OS ainda não encerradas
     const contasReceber = osList
-      .filter((o) => o.status === 'Pronto Avisar Cliente.')
+      .filter((o) => normalizeStatus(o.status) !== OS_STATUS.ENCERRADO)
       .reduce((acc, o) => acc + (o.serviceValue || o.total || 0), 0);
 
     const estoqueCritico = products.filter((p) => p.stock <= 2);
@@ -172,7 +174,7 @@ const Dashboard = () => {
     return {
       productRevenue, serviceRevenue, totalRevenue, totalProfit, productProfit,
       numSales, ticket, byCard, byCash, topProducts,
-      osEmAndamento, osProntas, contasReceber, estoqueCritico,
+      osEmAndamento, osMarcondes, contasReceber, estoqueCritico,
       margin: totalRevenue ? (totalProfit / totalRevenue) * 100 : 0,
       buckets: buildBuckets(period, sales),
     };
@@ -355,8 +357,8 @@ const Dashboard = () => {
               <strong>{m.osEmAndamento}</strong>
             </div>
             <div className="dash-line">
-              <span><Wrench size={15} className="text-success" /> Prontas p/ avisar</span>
-              <strong>{m.osProntas}</strong>
+              <span><Wrench size={15} className="text-success" /> Marcondes</span>
+              <strong>{m.osMarcondes}</strong>
             </div>
             <div className="dash-line dash-line-total">
               <span>Contas a receber</span>

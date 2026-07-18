@@ -1,0 +1,434 @@
+{
+  "app": "INFO CENTRO",
+  "version": 1,
+  "exportedAt": "2026-07-18T12:32:58.812222-03:00",
+  "data": {
+    "serviceOrders": [
+      {
+        "id": "2001",
+        "client": "Carlos Mendes",
+        "clientCPF": "123.456.789-09",
+        "clientPhone": "(12) 98111-2233",
+        "clientBirthDate": "1985-03-12",
+        "clientAddress": {
+          "cep": "12230-000",
+          "street": "Av. Andrômeda",
+          "number": "1520",
+          "neighborhood": "Jd. Satélite",
+          "city": "São José dos Campos",
+          "state": "SP"
+        },
+        "device": "Notebook Dell Inspiron 15",
+        "deviceFull": "Notebook Dell Inspiron 15 - S/N: BR-DL88341",
+        "devicePassword": "senha123",
+        "defect": "Não liga. Sem sinal de energia.",
+        "accessories": "Carregador original",
+        "status": "Encerrado",
+        "date": "2026-05-04T10:30:00-03:00",
+        "readyDate": "2026-05-09",
+        "services": [
+          {
+            "id": 1,
+            "description": "Troca de conector DC",
+            "price": 120.0
+          },
+          {
+            "id": 2,
+            "description": "Limpeza interna",
+            "price": 80.0
+          }
+        ],
+        "serviceValue": 200.0
+      },
+      {
+        "id": "2007",
+        "client": "Carlos Mendes",
+        "clientCPF": "123.456.789-09",
+        "clientPhone": "(12) 98111-2233",
+        "clientBirthDate": "1985-03-12",
+        "clientAddress": {
+          "cep": "12230-000",
+          "street": "Av. Andrômeda",
+          "number": "1520",
+          "neighborhood": "Jd. Satélite",
+          "city": "São José dos Campos",
+          "state": "SP"
+        },
+        "device": "Notebook Dell Inspiron 15",
+        "deviceFull": "Notebook Dell Inspiron 15 - S/N: BR-DL88341",
+        "devicePassword": "senha123",
+        "defect": "Superaquecendo e desligando sozinho.",
+        "accessories": "Somente o notebook",
+        "status": "Encerrado",
+        "date": "2026-06-23T10:30:00-03:00",
+        "readyDate": "2026-06-26",
+        "services": [
+          {
+            "id": 1,
+            "description": "Troca de pasta térmica",
+            "price": 60.0
+          },
+          {
+            "id": 2,
+            "description": "Limpeza de coolers",
+            "price": 50.0
+          }
+        ],
+        "serviceValue": 110.0
+      },
+      {
+        "id": "2013",
+        "client": "Carlos Mendes",
+        "clientCPF": "123.456.789-09",
+        "clientPhone": "(12) 98111-2233",
+        "clientBirthDate": "1985-03-12",
+        "clientAddress": {
+          "cep": "12230-000",
+          "street": "Av. Andrômeda",
+          "number": "1520",
+          "neighborhood": "Jd. Satélite",
+          "city": "São José dos Campos",
+          "state": "SP"
+        },
+        "device": "Smartphone Samsung Galaxy S22",
+        "deviceFull": "Smartphone Samsung Galaxy S22 - S/N: SM-G0192",
+        "devicePassword": "padrão em L",
+        "defect": "Tela trincada após queda.",
+        "accessories": "Nenhum acessório deixado.",
+        "status": "Em análise",
+        "date": "2026-07-18T10:30:00-03:00",
+        "readyDate": "",
+        "services": [],
+        "serviceValue": 0
+      },
+      {
+        "id": "2002",
+        "client": "Fernanda Lima",
+        "clientCPF": "987.654.321-00",
+        "clientPhone": "(12) 99777-4455",
+        "clientBirthDate": "1992-11-05",
+        "clientAddress": {
+          "cep": "12210-090",
+          "street": "Rua Paraibuna",
+          "number": "88",
+          "neighborhood": "Centro",
+          "city": "São José dos Campos",
+          "state": "SP"
+        },
+        "device": "Desktop PC Gamer Custom",
+        "deviceFull": "Desktop PC Gamer Custom - S/N: N/A",
+        "devicePassword": "",
+        "defect": "Travando em jogos pesados.",
+        "accessories": "Gabinete completo, sem periféricos",
+        "status": "Encerrado",
+        "date": "2026-06-08T10:30:00-03:00",
+        "readyDate": "2026-06-13",
+        "services": [
+          {
+            "id": 1,
+            "description": "Troca de fonte 650W",
+            "price": 380.0
+          },
+          {
+            "id": 2,
+            "description": "Diagnóstico completo",
+            "price": 50.0
+          }
+        ],
+        "serviceValue": 430.0
+      },
+      {
+        "id": "2010",
+        "client": "Fernanda Lima",
+        "clientCPF": "987.654.321-00",
+        "clientPhone": "(12) 99777-4455",
+        "clientBirthDate": "1992-11-05",
+        "clientAddress": {
+          "cep": "12210-090",
+          "street": "Rua Paraibuna",
+          "number": "88",
+          "neighborhood": "Centro",
+          "city": "São José dos Campos",
+          "state": "SP"
+        },
+        "device": "Desktop PC Gamer Custom",
+        "deviceFull": "Desktop PC Gamer Custom - S/N: N/A",
+        "devicePassword": "",
+        "defect": "Upgrade: instalar SSD NVMe e +16GB RAM.",
+        "accessories": "Nenhum acessório deixado.",
+        "status": "Marcondes",
+        "date": "2026-07-13T10:30:00-03:00",
+        "readyDate": "",
+        "services": [],
+        "serviceValue": 0
+      },
+      {
+        "id": "2003",
+        "client": "Roberto Alves",
+        "clientCPF": "111.222.333-44",
+        "clientPhone": "(12) 3941-8899",
+        "clientBirthDate": "1978-07-30",
+        "clientAddress": {
+          "cep": "12245-820",
+          "street": "Rua Euclides Miragaia",
+          "number": "405",
+          "neighborhood": "Centro",
+          "city": "São José dos Campos",
+          "state": "SP"
+        },
+        "device": "Notebook Acer Aspire 5",
+        "deviceFull": "Notebook Acer Aspire 5 - S/N: ACR55127",
+        "devicePassword": "roberto2024",
+        "defect": "Teclado com teclas falhando (A, S, D).",
+        "accessories": "Mochila e carregador",
+        "status": "Em análise",
+        "date": "2026-07-16T10:30:00-03:00",
+        "readyDate": "",
+        "services": [],
+        "serviceValue": 0
+      },
+      {
+        "id": "2004",
+        "client": "Juliana Castro",
+        "clientCPF": "555.666.777-88",
+        "clientPhone": "(12) 98123-9876",
+        "clientBirthDate": "1990-01-25",
+        "clientAddress": {
+          "cep": "12242-000",
+          "street": "Av. São João",
+          "number": "2200",
+          "neighborhood": "Jd. Colinas",
+          "city": "São José dos Campos",
+          "state": "SP"
+        },
+        "device": "All-in-One Lenovo IdeaCentre",
+        "deviceFull": "All-in-One Lenovo IdeaCentre - S/N: LNV-AIO-3321",
+        "devicePassword": "juju123",
+        "defect": "Tela com linhas verticais coloridas.",
+        "accessories": "Nenhum acessório deixado.",
+        "status": "Marcondes",
+        "date": "2026-07-10T10:30:00-03:00",
+        "readyDate": "",
+        "services": [],
+        "serviceValue": 0
+      },
+      {
+        "id": "2005",
+        "client": "Marcos Paulo Souza",
+        "clientCPF": "999.888.777-66",
+        "clientPhone": "(12) 99654-3210",
+        "clientBirthDate": "",
+        "clientAddress": {
+          "cep": "",
+          "street": "",
+          "number": "",
+          "neighborhood": "",
+          "city": "",
+          "state": ""
+        },
+        "device": "Smartphone iPhone 13",
+        "deviceFull": "Smartphone iPhone 13 - S/N: IP13-77820",
+        "devicePassword": "",
+        "defect": "Bateria descarrega em 2 horas.",
+        "accessories": "Somente o aparelho",
+        "status": "Encerrado",
+        "date": "2026-07-03T10:30:00-03:00",
+        "readyDate": "2026-07-06",
+        "services": [
+          {
+            "id": 1,
+            "description": "Troca de bateria (original)",
+            "price": 350.0
+          }
+        ],
+        "serviceValue": 350.0
+      },
+      {
+        "id": "2006",
+        "client": "Ana Beatriz Rocha",
+        "clientCPF": "222.333.444-55",
+        "clientPhone": "(12) 98800-1122",
+        "clientBirthDate": "2000-09-18",
+        "clientAddress": {
+          "cep": "12209-110",
+          "street": "Rua Vilaça",
+          "number": "120",
+          "neighborhood": "Vila Maria",
+          "city": "São José dos Campos",
+          "state": "SP"
+        },
+        "device": "Notebook Lenovo IdeaPad 3",
+        "deviceFull": "Notebook Lenovo IdeaPad 3 - S/N: LNV-IP3-9987",
+        "devicePassword": "anab2000",
+        "defect": "Windows não inicia — tela azul em loop.",
+        "accessories": "Carregador",
+        "status": "Em análise",
+        "date": "2026-07-17T10:30:00-03:00",
+        "readyDate": "",
+        "services": [],
+        "serviceValue": 0
+      },
+      {
+        "id": "2008",
+        "client": "José Carlos Ferreira",
+        "clientCPF": "444.555.666-77",
+        "clientPhone": "(12) 3922-5544",
+        "clientBirthDate": "1965-04-02",
+        "clientAddress": {
+          "cep": "12210-050",
+          "street": "Rua Sebastião Humel",
+          "number": "77",
+          "neighborhood": "Centro",
+          "city": "São José dos Campos",
+          "state": "SP"
+        },
+        "device": "Desktop Positivo Master",
+        "deviceFull": "Desktop Positivo Master - S/N: PSV-889123",
+        "devicePassword": "",
+        "defect": "Muito lento, suspeita de HD com defeito.",
+        "accessories": "Nenhum acessório deixado.",
+        "status": "Marcondes",
+        "date": "2026-07-08T10:30:00-03:00",
+        "readyDate": "",
+        "services": [],
+        "serviceValue": 0
+      },
+      {
+        "id": "2009",
+        "client": "Patrícia Nunes",
+        "clientCPF": "333.444.555-66",
+        "clientPhone": "(12) 99911-8877",
+        "clientBirthDate": "1988-12-14",
+        "clientAddress": {
+          "cep": "",
+          "street": "",
+          "number": "",
+          "neighborhood": "",
+          "city": "",
+          "state": ""
+        },
+        "device": "Notebook Samsung Book",
+        "deviceFull": "Notebook Samsung Book - S/N: SMB-45210",
+        "devicePassword": "pati88",
+        "defect": "Derramou café no teclado.",
+        "accessories": "Notebook e carregador",
+        "status": "Em análise",
+        "date": "2026-07-15T10:30:00-03:00",
+        "readyDate": "",
+        "services": [],
+        "serviceValue": 0
+      },
+      {
+        "id": "2011",
+        "client": "Eduardo Tanaka",
+        "clientCPF": "666.777.888-99",
+        "clientPhone": "(12) 98222-6644",
+        "clientBirthDate": "1995-06-08",
+        "clientAddress": {
+          "cep": "12246-870",
+          "street": "Av. Cassiano Ricardo",
+          "number": "1001",
+          "neighborhood": "Jd. Aquarius",
+          "city": "São José dos Campos",
+          "state": "SP"
+        },
+        "device": "Notebook MacBook Air M1",
+        "deviceFull": "Notebook MacBook Air M1 - S/N: MBA-M1-3345",
+        "devicePassword": "",
+        "defect": "Não carrega. Testado com 2 carregadores.",
+        "accessories": "Somente o aparelho",
+        "status": "Encerrado",
+        "date": "2026-06-18T10:30:00-03:00",
+        "readyDate": "2026-06-21",
+        "services": [
+          {
+            "id": 1,
+            "description": "Reparo no circuito de carga",
+            "price": 420.0
+          },
+          {
+            "id": 2,
+            "description": "Limpeza da placa lógica",
+            "price": 90.0
+          }
+        ],
+        "serviceValue": 510.0
+      },
+      {
+        "id": "2012",
+        "client": "Luciana Prado",
+        "clientCPF": "777.888.999-00",
+        "clientPhone": "(12) 3945-6677",
+        "clientBirthDate": "1983-02-20",
+        "clientAddress": {
+          "cep": "12243-680",
+          "street": "Rua Independência",
+          "number": "356",
+          "neighborhood": "Vila Adyana",
+          "city": "São José dos Campos",
+          "state": "SP"
+        },
+        "device": "All-in-One HP 200 G4",
+        "deviceFull": "All-in-One HP 200 G4 - S/N: HP-AIO-6712",
+        "devicePassword": "lp1234",
+        "defect": "Sem áudio após atualização do Windows.",
+        "accessories": "Nenhum acessório deixado.",
+        "status": "Em análise",
+        "date": "2026-07-17T10:30:00-03:00",
+        "readyDate": "",
+        "services": [],
+        "serviceValue": 0
+      },
+      {
+        "id": "2014",
+        "client": "Rafael Siqueira",
+        "clientCPF": "888.999.000-11",
+        "clientPhone": "(12) 99333-2211",
+        "clientBirthDate": "1998-10-11",
+        "clientAddress": {
+          "cep": "",
+          "street": "",
+          "number": "",
+          "neighborhood": "",
+          "city": "",
+          "state": ""
+        },
+        "device": "Smartphone Xiaomi Redmi Note 12",
+        "deviceFull": "Smartphone Xiaomi Redmi Note 12 - S/N: XRN12-8890",
+        "devicePassword": "",
+        "defect": "Conector de carga folgado.",
+        "accessories": "Capinha e película já removidas",
+        "status": "Marcondes",
+        "date": "2026-07-12T10:30:00-03:00",
+        "readyDate": "",
+        "services": [],
+        "serviceValue": 0
+      },
+      {
+        "id": "2015",
+        "client": "Beatriz Camargo",
+        "clientCPF": "000.111.222-33",
+        "clientPhone": "(12) 98444-5566",
+        "clientBirthDate": "1975-08-27",
+        "clientAddress": {
+          "cep": "12210-100",
+          "street": "Rua XV de Novembro",
+          "number": "412",
+          "neighborhood": "Centro",
+          "city": "São José dos Campos",
+          "state": "SP"
+        },
+        "device": "Notebook Asus VivoBook",
+        "deviceFull": "Notebook Asus VivoBook - S/N: ASV-11230",
+        "devicePassword": "bia75",
+        "defect": "Cliente pediu orçamento de formatação + backup.",
+        "accessories": "Notebook, carregador e mouse",
+        "status": "Em análise",
+        "date": "2026-07-18T10:30:00-03:00",
+        "readyDate": "",
+        "services": [],
+        "serviceValue": 0
+      }
+    ]
+  }
+}

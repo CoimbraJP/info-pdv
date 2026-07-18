@@ -29,10 +29,7 @@ const defaultProducts = [
   { id: 9, name: 'Pasta Térmica Implastec', price: 15.00, cost: 6.00, barcode: '77777', stock: 0 },
 ];
 
-const defaultOS = [
-  { id: '1001', client: 'João Silva', device: 'Notebook Dell Inspiron', status: 'Em análise', date: new Date().toISOString(), problem: 'Computador não liga após queda de energia.', services: [], total: 0, serviceValue: 0 },
-  { id: '1002', client: 'Maria Oliveira', device: 'PC Gamer Custom', status: 'Aguardando Aprovação / Peças', date: new Date(Date.now() - 86400000).toISOString(), problem: 'Sistema travando durante jogos.', services: [], total: 0, serviceValue: 0 },
-];
+const defaultOS = []; // sem OS de exemplo — dados de teste entram via importação de backup
 
 const defaultSettings = {
   osPrintTemplate: 'thermal-1',

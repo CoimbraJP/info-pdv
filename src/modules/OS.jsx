@@ -2,7 +2,10 @@ import { useState, useRef } from 'react';
 import { Plus, Search, Wrench, User, FileText, CheckCircle, Clock, Printer, LayoutGrid, List, Trash2, AlertCircle } from 'lucide-react';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { useGlobalState } from '../context/GlobalState';
+import { OS_STATUS, OS_STATUS_LIST, normalizeStatus } from '../constants/osStatus';
 import './OS.css';
+
+const EMPTY_ADDRESS = { cep: '', street: '', number: '', neighborhood: '', city: '', state: '' };
 
 const OS = () => {
   const { osList, setOsList, settings } = useGlobalState();
@@ -15,12 +18,14 @@ const OS = () => {
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [serviceItems, setServiceItems] = useState([]);
   const [newItem, setNewItem] = useState({ description: '', price: '' });
-  const [address, setAddress] = useState({ street: '', neighborhood: '', city: '', state: '' });
+  const [address, setAddress] = useState(EMPTY_ADDRESS);
   const [accessories, setAccessories] = useState('');
+  const [clientHistory, setClientHistory] = useState([]); // OS anteriores do CPF digitado
   const [formData, setFormData] = useState({
     clientName: '',
     clientPhone: '',
     clientCPF: '',
+    clientBirthDate: '',
     deviceType: 'Notebook',
     deviceBrand: '',
     deviceSN: '',
@@ -49,10 +54,12 @@ const OS = () => {
       id: nextOsId(),
       client: formData.clientName,
       device: `${formData.deviceType} ${formData.deviceBrand}`,
-      status: 'Em análise',
+      status: OS_STATUS.ANALISE, // padrão
       date: new Date().toISOString(), // sempre ISO; formatar só na exibição
       clientPhone: formData.clientPhone,
       clientCPF: formData.clientCPF,
+      clientBirthDate: formData.clientBirthDate,
+      clientAddress: { ...address }, // agora persiste (antes era coletado e descartado)
       deviceFull: `${formData.deviceType} ${formData.deviceBrand} - S/N: ${formData.deviceSN}`,
       devicePassword: formData.devicePassword,
       defect: formData.defect,
@@ -61,16 +68,19 @@ const OS = () => {
       serviceValue: 0,
       readyDate: ''
     };
-    
+
     setOsList([...osList, newOs]);
     setTimeout(() => {
       window.print();
       setActiveTab('list');
       setFormData({
-        clientName: '', clientPhone: '', clientCPF: '', 
-        deviceType: 'Notebook', deviceBrand: '', deviceSN: '', 
+        clientName: '', clientPhone: '', clientCPF: '', clientBirthDate: '',
+        deviceType: 'Notebook', deviceBrand: '', deviceSN: '',
         devicePassword: '', defect: ''
       });
+      setAddress(EMPTY_ADDRESS);
+      setAccessories('');
+      setClientHistory([]);
     }, 100);
   };
   
@@ -87,7 +97,9 @@ const OS = () => {
       readyDate: os.readyDate || '',
       serviceValue: os.serviceValue || 0,
       deviceFull: os.deviceFull || os.device || '',
-      status: os.status || 'Em análise',
+      status: normalizeStatus(os.status),
+      clientBirthDate: os.clientBirthDate || '',
+      clientAddress: { ...EMPTY_ADDRESS, ...(os.clientAddress || {}) },
     });
     setServiceItems(Array.isArray(os.services) ? os.services : []);
   };
@@ -110,7 +122,10 @@ const OS = () => {
     setEditingOS(null);
   };
 
-  const handleCloseOS = () => persistEditing({ status: 'Encerrado' });
+  const handleCloseOS = () => persistEditing({
+    status: OS_STATUS.ENCERRADO,
+    readyDate: new Date().toISOString().split('T')[0],
+  });
   const saveEdit = () => persistEditing();
 
   const addServiceItem = () => {
@@ -140,18 +155,21 @@ const OS = () => {
   const totalServices = serviceItems.reduce((acc, item) => acc + item.price, 0);
 
   const handleCEPChange = async (value) => {
+    setAddress(prev => ({ ...prev, cep: value }));
     const cleanCEP = value.replace(/\D/g, '');
     if (cleanCEP.length === 8) {
       try {
         const response = await fetch(`https://viacep.com.br/ws/${cleanCEP}/json/`);
         const data = await response.json();
         if (!data.erro) {
-          setAddress({
+          setAddress(prev => ({
+            ...prev,
+            cep: value,
             street: data.logradouro,
             neighborhood: data.bairro,
             city: data.localidade,
             state: data.uf
-          });
+          }));
           // Auto focus on number field
           setTimeout(() => numberInputRef.current?.focus(), 100);
         }
@@ -161,30 +179,40 @@ const OS = () => {
     }
   };
 
-  const handleCPFBlur = (cpf) => {
-    if (!cpf) return;
-    const cleanCpf = cpf.replace(/\D/g, '');
-    if (cleanCpf.length === 11 || cleanCpf.length === 14) {
-      // Find client in osList (most recent first)
-      const existingClient = [...osList].reverse().find(os => os.clientCPF && os.clientCPF.replace(/\D/g, '') === cleanCpf);
-      if (existingClient) {
-        setFormData(prev => ({
-          ...prev,
-          clientName: existingClient.client || prev.clientName,
-          clientPhone: existingClient.clientPhone || prev.clientPhone
-        }));
-      }
+  /**
+   * Consulta o CPF na base local (que é o espelho do banco): se o cliente já
+   * fez OS, preenche TODOS os dados dele (menos equipamento) e monta o
+   * histórico exibido acima da seção do equipamento.
+   */
+  const lookupClientByCPF = (cpf) => {
+    const cleanCpf = (cpf || '').replace(/\D/g, '');
+    if (cleanCpf.length !== 11 && cleanCpf.length !== 14) {
+      setClientHistory([]);
+      return;
     }
+    const history = osList
+      .filter(os => os.clientCPF && os.clientCPF.replace(/\D/g, '') === cleanCpf)
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+    setClientHistory(history);
+    if (history.length === 0) return;
+
+    // Registro mais recente que tenha cada dado (OS antigas podem não ter tudo)
+    const pick = (field) => history.find(os => os[field] && (typeof os[field] !== 'object' || os[field].cep || os[field].street))?.[field];
+    setFormData(prev => ({
+      ...prev,
+      clientName: pick('client') || prev.clientName,
+      clientPhone: pick('clientPhone') || prev.clientPhone,
+      clientBirthDate: pick('clientBirthDate') || prev.clientBirthDate,
+    }));
+    const savedAddress = pick('clientAddress');
+    if (savedAddress) setAddress({ ...EMPTY_ADDRESS, ...savedAddress });
   };
 
-
   const getStatusColor = (status) => {
-    switch(status) {
-      case 'Em análise': return 'status-warning';
-      case 'Aguardando Aprovação / Peças': return 'status-info';
-      case 'Pronto Avisar Cliente.': return 'status-success';
-      case 'Marcondes': return 'text-primary font-bold';
-      case 'Encerrado': return 'opacity-50 grayscale';
+    switch (normalizeStatus(status)) {
+      case OS_STATUS.ANALISE: return 'status-warning';
+      case OS_STATUS.MARCONDES: return 'text-primary font-bold';
+      case OS_STATUS.ENCERRADO: return 'opacity-50 grayscale';
       default: return 'text-muted';
     }
   };
@@ -202,20 +230,19 @@ const OS = () => {
     // Com busca ativa, procura em TODAS as OS (inclusive encerradas) —
     // é justamente para achar uma OS antiga que o operador busca.
     if (searchTerm.trim()) return true;
-    if (filter === 'maintenance') return os.status === 'Em análise' || os.status === 'Aguardando Aprovação / Peças';
-    if (filter === 'ready') return os.status === 'Pronto Avisar Cliente.';
-    if (filter === 'marcondes') return os.status === 'Marcondes';
-    if (filter === 'closed') return os.status === 'Encerrado';
-    if (filter === 'all') return os.status !== 'Encerrado';
+    const status = normalizeStatus(os.status);
+    if (filter === 'analise') return status === OS_STATUS.ANALISE;
+    if (filter === 'marcondes') return status === OS_STATUS.MARCONDES;
+    if (filter === 'closed') return status === OS_STATUS.ENCERRADO;
+    if (filter === 'all') return status !== OS_STATUS.ENCERRADO;
     return true;
   });
 
   const filterOptions = [
-    { id: 'maintenance', label: '1 - EM MANUTENÇÃO' },
-    { id: 'ready', label: '2 - PRONTOS' },
-    { id: 'marcondes', label: '3 - MARCONDES' },
-    { id: 'all', label: '4 - TODOS' },
-    { id: 'closed', label: '5 - FECHADOS' },
+    { id: 'analise', label: '1 - EM ANÁLISE' },
+    { id: 'marcondes', label: '2 - MARCONDES' },
+    { id: 'all', label: '3 - TODOS' },
+    { id: 'closed', label: '4 - ENCERRADOS' },
   ];
 
   return (
@@ -416,17 +443,48 @@ const OS = () => {
                 <h4 className="section-title"><User size={18} /> Dados do Cliente</h4>
                 <div className="card bg-surface-hover p-5" style={{ borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
                   <div className="flex justify-between items-start mb-4 pb-4 border-bottom">
-                     <div className="flex items-center gap-4">
-                        <div className="avatar" style={{ width: '56px', height: '56px', fontSize: '1.6rem' }}>
+                     <div className="flex items-center gap-4" style={{ flex: 1 }}>
+                        <div className="avatar" style={{ width: '56px', height: '56px', fontSize: '1.6rem', flexShrink: 0 }}>
                           {editingOS.client ? editingOS.client.charAt(0).toUpperCase() : 'C'}
                         </div>
-                        <div className="flex flex-col gap-1">
-                          <h3 className="font-bold text-xl">{editingOS.client}</h3>
-                          <span className="text-muted text-sm font-medium tracking-wide" style={{ fontFamily: 'monospace' }}>CPF/CNPJ: {editingOS.clientCPF || 'Não informado'}</span>
-                          <span className="text-muted text-sm font-medium tracking-wide" style={{ fontFamily: 'monospace' }}>TELEFONE: {editingOS.clientPhone || 'Não informado'}</span>
+                        {/* Todos os campos do cliente são editáveis, EXCETO o CPF (chave única) */}
+                        <div className="grid grid-cols-2 gap-4" style={{ flex: 1 }}>
+                          <div className="form-group">
+                            <label>Nome</label>
+                            <input
+                              type="text" className="input"
+                              value={editingOS.client || ''}
+                              onChange={(e) => setEditingOS({ ...editingOS, client: e.target.value })}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label>CPF/CNPJ (chave única — não editável)</label>
+                            <input
+                              type="text" className="input" disabled
+                              value={editingOS.clientCPF || 'Não informado'}
+                              style={{ fontFamily: 'monospace', cursor: 'not-allowed', opacity: 0.7 }}
+                              title="O CPF identifica o cliente e não pode ser alterado"
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label>Telefone / WhatsApp</label>
+                            <input
+                              type="text" className="input"
+                              value={editingOS.clientPhone || ''}
+                              onChange={(e) => setEditingOS({ ...editingOS, clientPhone: e.target.value })}
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label>Data de Nascimento</label>
+                            <input
+                              type="date" className="input"
+                              value={editingOS.clientBirthDate || ''}
+                              onChange={(e) => setEditingOS({ ...editingOS, clientBirthDate: e.target.value })}
+                            />
+                          </div>
                         </div>
                      </div>
-                     <a 
+                     <a
                         href={`https://wa.me/55${(editingOS.clientPhone || '').replace(/\D/g, '')}`} 
                         target="_blank" 
                         rel="noopener noreferrer"
@@ -443,8 +501,45 @@ const OS = () => {
                        <span className="font-medium text-main">{formatDate(editingOS.entryDate)}</span>
                     </div>
                     <div>
-                       <span className="text-muted text-xs uppercase tracking-wide block mb-1">Data de Saída (Pronto)</span>
+                       <span className="text-muted text-xs uppercase tracking-wide block mb-1">Data de Saída (Encerrada)</span>
                        <span className="font-medium text-main">{editingOS.readyDate ? formatDate(editingOS.readyDate) : 'Pendente'}</span>
+                    </div>
+                  </div>
+                  {/* Endereço (também editável) */}
+                  <div className="grid grid-cols-2 gap-4 pt-4 mt-4 border-top">
+                    <div className="form-group">
+                      <label>CEP</label>
+                      <input
+                        type="text" className="input"
+                        value={editingOS.clientAddress?.cep || ''}
+                        onChange={(e) => setEditingOS({ ...editingOS, clientAddress: { ...editingOS.clientAddress, cep: e.target.value } })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Rua / Logradouro</label>
+                      <input
+                        type="text" className="input"
+                        value={editingOS.clientAddress?.street || ''}
+                        onChange={(e) => setEditingOS({ ...editingOS, clientAddress: { ...editingOS.clientAddress, street: e.target.value } })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Número</label>
+                      <input
+                        type="text" className="input"
+                        value={editingOS.clientAddress?.number || ''}
+                        onChange={(e) => setEditingOS({ ...editingOS, clientAddress: { ...editingOS.clientAddress, number: e.target.value } })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Bairro / Cidade</label>
+                      <input
+                        type="text" className="input"
+                        value={[editingOS.clientAddress?.neighborhood, editingOS.clientAddress?.city].filter(Boolean).join(' / ')}
+                        disabled
+                        style={{ opacity: 0.7 }}
+                        title="Preenchido automaticamente pelo CEP"
+                      />
                     </div>
                   </div>
                 </div>
@@ -459,17 +554,16 @@ const OS = () => {
                     value={editingOS.status}
                     onChange={(e) => {
                       const newStatus = e.target.value;
-                      const newReadyDate = newStatus === 'Pronto Avisar Cliente.'
+                      // Encerrar carimba a data de saída; reabrir limpa
+                      const newReadyDate = newStatus === OS_STATUS.ENCERRADO
                         ? new Date().toISOString().split('T')[0]
                         : '';
                       setEditingOS({ ...editingOS, status: newStatus, readyDate: newReadyDate });
                     }}
                   >
-                    <option value="Em análise">Em análise</option>
-                    <option value="Aguardando Aprovação / Peças">Aguardando Aprovação / Peças</option>
-                    <option value="Pronto Avisar Cliente.">Pronto Avisar Cliente.</option>
-                    <option value="Marcondes">Marcondes</option>
-                    <option value="Encerrado">Encerrado</option>
+                    {OS_STATUS_LIST.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="form-group">
@@ -576,32 +670,42 @@ const OS = () => {
               <div className="form-section">
                 <h4 className="section-title"><User size={18} /> Dados do Cliente</h4>
                 <div className="form-grid">
+                  {/* CPF primeiro: é a chave do cliente e dispara a busca do cadastro */}
+                  <div className="form-group">
+                    <label>CPF/CNPJ (identifica o cliente)</label>
+                    <input
+                      type="text" className="input" placeholder="000.000.000-00" autoFocus
+                      value={formData.clientCPF}
+                      onChange={(e) => {
+                        setFormData({ ...formData, clientCPF: e.target.value });
+                        lookupClientByCPF(e.target.value);
+                      }}
+                      onBlur={(e) => lookupClientByCPF(e.target.value)}
+                    />
+                  </div>
                   <div className="form-group">
                     <label>Nome Completo</label>
-                    <input 
-                      type="text" className="input" placeholder="Ex: João da Silva" 
+                    <input
+                      type="text" className="input" placeholder="Ex: João da Silva"
+                      value={formData.clientName}
                       onChange={(e) => setFormData({...formData, clientName: e.target.value})}
                     />
                   </div>
                   <div className="form-group">
                     <label>Telefone / WhatsApp</label>
-                    <input 
-                      type="text" className="input" placeholder="(00) 00000-0000" 
+                    <input
+                      type="text" className="input" placeholder="(00) 00000-0000"
+                      value={formData.clientPhone}
                       onChange={(e) => setFormData({...formData, clientPhone: e.target.value})}
                     />
                   </div>
                   <div className="form-group">
-                    <label>CPF/CNPJ</label>
-                    <input 
-                      type="text" className="input" placeholder="000.000.000-00" 
-                      value={formData.clientCPF}
-                      onChange={(e) => setFormData({...formData, clientCPF: e.target.value})}
-                      onBlur={(e) => handleCPFBlur(e.target.value)}
-                    />
-                  </div>
-                  <div className="form-group">
                     <label>Data de Nascimento</label>
-                    <input type="date" className="input" />
+                    <input
+                      type="date" className="input"
+                      value={formData.clientBirthDate}
+                      onChange={(e) => setFormData({...formData, clientBirthDate: e.target.value})}
+                    />
                   </div>
                 </div>
               </div>
@@ -611,10 +715,11 @@ const OS = () => {
                 <div className="form-grid">
                   <div className="form-group">
                     <label>CEP</label>
-                    <input 
-                      type="text" 
-                      className="input" 
+                    <input
+                      type="text"
+                      className="input"
                       placeholder="12200-000"
+                      value={address.cep}
                       onChange={(e) => handleCEPChange(e.target.value)}
                     />
                   </div>
@@ -632,15 +737,36 @@ const OS = () => {
                   </div>
                   <div className="form-group">
                     <label>Número</label>
-                    <input 
+                    <input
                       ref={numberInputRef}
-                      type="text" 
-                      className="input" 
+                      type="text"
+                      className="input"
                       placeholder="Nº"
+                      value={address.number}
+                      onChange={(e) => setAddress(prev => ({ ...prev, number: e.target.value }))}
                     />
                   </div>
                 </div>
               </div>
+
+              {/* Histórico do cliente: aparece acima do equipamento quando o CPF já passou pela loja */}
+              {clientHistory.length > 0 && (
+                <div
+                  className="flex items-center gap-2 px-4 py-3 mb-4"
+                  style={{
+                    background: 'var(--primary-subtle, rgba(255,215,0,0.08))',
+                    border: '1px solid rgba(255,215,0,0.3)',
+                    borderRadius: 'var(--radius-md)',
+                  }}
+                >
+                  <Clock size={16} className="text-primary" style={{ flexShrink: 0 }} />
+                  <span className="text-sm">
+                    Cliente já atendido — última OS: <strong>{clientHistory[0].device || clientHistory[0].deviceFull}</strong> em{' '}
+                    <strong>{formatDate(clientHistory[0].date)}</strong>
+                    {clientHistory.length > 1 && ` (+${clientHistory.length - 1} OS anterior${clientHistory.length > 2 ? 'es' : ''})`}
+                  </span>
+                </div>
+              )}
 
               <div className="form-section">
                 <h4 className="section-title"><Wrench size={18} /> Dados do Equipamento</h4>
