@@ -186,15 +186,15 @@ const Dashboard = () => {
     <div className="dashboard-container">
       <div className="module-header">
         <h2 className="module-title">
-          <BarChart2 size={22} className="text-primary" />
-          Dashboard Gerencial
+          <BarChart2 size={20} className="text-primary" />
+          Dashboard
         </h2>
 
-        <div className="period-selector">
+        <div className="seg-control" role="group" aria-label="Período">
           {PERIODS.map((p) => (
             <button
               key={p.key}
-              className={`period-btn ${period === p.key ? 'active' : ''}`}
+              className={`seg-item ${period === p.key ? 'is-active' : ''}`}
               onClick={() => setPeriod(p.key)}
             >
               {p.label}
@@ -206,7 +206,7 @@ const Dashboard = () => {
       <div className="module-body">
         {/* KPI Cards */}
         <div className="kpi-grid mb-6">
-          <div className="card kpi-card">
+          <div className="panel kpi-card">
             <div className="kpi-icon bg-primary-light">
               <DollarSign size={22} className="text-primary" />
             </div>
@@ -220,7 +220,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="card kpi-card">
+          <div className="panel kpi-card">
             <div className="kpi-icon bg-success-light">
               <TrendingUp size={22} className="text-success" />
             </div>
@@ -234,7 +234,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="card kpi-card">
+          <div className="panel kpi-card">
             <div className="kpi-icon bg-info-light">
               <Receipt size={22} className="text-info" />
             </div>
@@ -247,7 +247,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="card kpi-card">
+          <div className="panel kpi-card">
             <div className="kpi-icon bg-warning-light">
               <Package size={22} className="text-warning" />
             </div>
@@ -264,16 +264,16 @@ const Dashboard = () => {
 
         {/* Linha 1: gráfico + rankings */}
         <div className="dashboard-grid mb-6">
-          <div className="card dashboard-section dashboard-chart-card">
+          <div className="panel dashboard-section dashboard-chart-card">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="section-header mb-0">Faturamento por Período</h3>
+              <h3 className="panel-title mb-0">Faturamento por Período</h3>
               <Calendar size={18} className="text-muted" />
             </div>
             <RevenueChart buckets={m.buckets} />
           </div>
 
-          <div className="card dashboard-section">
-            <h3 className="section-header">Mais Vendidos</h3>
+          <div className="panel dashboard-section">
+            <h3 className="panel-title">Mais Vendidos</h3>
             <ul className="ranking-list">
               {m.topProducts.map((p, i) => (
                 <li key={p.name} className="ranking-item">
@@ -290,8 +290,8 @@ const Dashboard = () => {
             </ul>
           </div>
 
-          <div className="card dashboard-section">
-            <h3 className="section-header text-danger">Estoque Crítico</h3>
+          <div className="panel dashboard-section">
+            <h3 className="panel-title text-danger">Estoque Crítico</h3>
             <ul className="critical-list">
               {m.estoqueCritico.slice(0, 5).map((p) => (
                 <li key={p.id} className="critical-item">
@@ -312,8 +312,8 @@ const Dashboard = () => {
 
         {/* Linha 2: financeiro + pagamentos + OS */}
         <div className="dashboard-grid">
-          <div className="card dashboard-section">
-            <h3 className="section-header">Composição do Faturamento</h3>
+          <div className="panel dashboard-section">
+            <h3 className="panel-title">Composição do Faturamento</h3>
             <div className="dash-line">
               <span><Package size={15} className="text-primary" /> Produtos</span>
               <strong>{formatCurrency(m.productRevenue)}</strong>
@@ -332,8 +332,8 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="card dashboard-section">
-            <h3 className="section-header">Formas de Pagamento</h3>
+          <div className="panel dashboard-section">
+            <h3 className="panel-title">Formas de Pagamento</h3>
             <div className="pay-row">
               <div className="pay-head">
                 <span><CreditCard size={15} className="text-info" /> Cartão / PIX</span>
@@ -350,8 +350,8 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="card dashboard-section">
-            <h3 className="section-header">Ordens de Serviço</h3>
+          <div className="panel dashboard-section">
+            <h3 className="panel-title">Ordens de Serviço</h3>
             <div className="dash-line">
               <span><ClipboardList size={15} className="text-warning" /> Em andamento</span>
               <strong>{m.osEmAndamento}</strong>

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Package, Search, Plus, Edit2, Trash2, X, Check, AlertTriangle } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Package, Search, Plus, Edit2, Trash2, X, Check, AlertTriangle, Download, Upload } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
 import { formatCurrency } from '../utils/formatters';
 import './OS.css';
@@ -72,119 +72,266 @@ const Estoque = () => {
     return <span className="badge badge-success">{stock} un</span>;
   };
 
+  const marginBadge = (price, cost) => {
+    if (!price || price === 0) return '—';
+    const margin = ((price - cost) / price) * 100;
+    const color = margin >= 30 ? 'text-success' : margin >= 15 ? 'text-warning' : 'text-danger';
+    return <span className={`font-bold ${color}`}>{margin.toFixed(1)}%</span>;
+  };
+
+  const fileInputRef = useRef(null);
+
+  // Exportar produtos para XLS via CSV (Excel lê nativamente)
+  const handleExportXLS = () => {
+    if (products.length === 0) {
+      alert('Nenhum produto para exportar');
+      return;
+    }
+
+    // Cabeçalho
+    const headers = ['Código de Barras', 'Produto', 'Custo (R$)', 'Preço (R$)', 'Estoque'];
+
+    // Dados
+    const rows = products.map(p => [
+      p.barcode || '',
+      p.name,
+      p.cost || '',
+      p.price,
+      p.stock || 0,
+    ]);
+
+    // Monta CSV (Excel abre sem problemas)
+    const csvContent = [
+      headers.join('\t'),
+      ...rows.map(row => row.join('\t')),
+    ].join('\n');
+
+    // Download
+    const blob = new Blob([csvContent], { type: 'text/tab-separated-values;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `estoque-${new Date().toISOString().slice(0, 10)}.xls`;
+    link.click();
+  };
+
+  // Importar produtos de XLS
+  const handleImportXLS = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result;
+        if (typeof text !== 'string') return;
+
+        const lines = text.split('\n').filter(l => l.trim());
+        if (lines.length < 2) {
+          alert('Arquivo vazio ou inválido');
+          return;
+        }
+
+        // Pula o cabeçalho
+        const rows = lines.slice(1);
+        const imported = [];
+        const errors = [];
+
+        rows.forEach((line, idx) => {
+          const [barcode, name, cost, price, stock] = line.split('\t').map(v => v.trim());
+
+          // Validação básica
+          if (!name) {
+            errors.push(`Linha ${idx + 2}: nome é obrigatório`);
+            return;
+          }
+          if (!price || isNaN(parseFloat(price))) {
+            errors.push(`Linha ${idx + 2}: preço inválido`);
+            return;
+          }
+
+          imported.push({
+            id: Date.now() + idx, // novo ID para imports
+            barcode: barcode || '',
+            name: name.trim(),
+            cost: parseFloat(cost) || 0,
+            price: parseFloat(price),
+            stock: parseInt(stock) || 0,
+          });
+        });
+
+        if (errors.length > 0) {
+          alert(`Erros ao importar:\n${errors.join('\n')}`);
+          return;
+        }
+
+        // Merge: atualiza produtos com barcode/nome igual, adiciona novos
+        setProducts((prev) => {
+          const updated = [...prev];
+          imported.forEach((imp) => {
+            const idx = updated.findIndex(p =>
+              (imp.barcode && p.barcode === imp.barcode) ||
+              p.name.toLowerCase() === imp.name.toLowerCase()
+            );
+            if (idx !== -1) {
+              updated[idx] = { ...updated[idx], ...imp, id: updated[idx].id }; // mantém ID original
+            } else {
+              updated.push(imp);
+            }
+          });
+          return updated;
+        });
+
+        alert(`${imported.length} produto(s) importado(s) com sucesso!`);
+      } catch (err) {
+        alert('Erro ao ler arquivo: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+
+    // Limpa o input para permitir re-upload
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   return (
     <div className="os-container">
+      {/* ── Cabeçalho: uma linha ── */}
       <div className="module-header">
-        <h2 className="module-title flex items-center gap-2">
-          <Package size={22} className="text-primary" />
-          Gestão de Estoque
+        <h2 className="module-title">
+          <Package size={20} className="text-primary" />
+          Estoque
         </h2>
-        <div className="flex items-center gap-3">
-          {criticalCount > 0 && (
-            <div className="flex items-center gap-2 px-3 py-2" style={{ background: 'var(--status-warning-bg)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(245,158,11,0.3)' }}>
-              <AlertTriangle size={16} className="text-warning" />
-              <span className="text-sm text-warning font-bold">{criticalCount} crítico{criticalCount > 1 ? 's' : ''}</span>
+
+        <div className="toolbar-right">
+          <div className="stat-chip">
+            <div>
+              <span className="stat-chip-label">Produtos</span>
+              <span className="stat-chip-value">{products.length}</span>
             </div>
-          )}
-          <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-            <Plus size={18} />
-            Novo Produto
+          </div>
+          <div className="stat-chip">
+            <div>
+              <span className="stat-chip-label">Valor em estoque</span>
+              <span className="stat-chip-value text-primary">
+                {formatCurrency(products.reduce((acc, p) => acc + (p.price * p.stock), 0))}
+              </span>
+            </div>
+          </div>
+          <div className="stat-chip" style={criticalCount > 0 ? { borderColor: 'rgba(245,158,11,0.35)' } : undefined}>
+            <div>
+              <span className="stat-chip-label">Críticos</span>
+              <span className={`stat-chip-value ${criticalCount > 0 ? 'text-warning' : 'text-success'}`}>
+                {criticalCount}
+              </span>
+            </div>
+          </div>
+          <button className="btn-outline btn-outline-sm" onClick={handleExportXLS} title="Exportar estoque em formato XLS">
+            <Download size={16} /> Exportar XLS
+          </button>
+          <button className="btn-outline btn-outline-sm" onClick={() => fileInputRef.current?.click()} title="Importar estoque de um arquivo XLS">
+            <Upload size={16} /> Importar XLS
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xls,.xlsx,.csv,.tsv,.txt"
+            onChange={handleImportXLS}
+            style={{ display: 'none' }}
+          />
+          <button className="btn btn-primary btn-sm" onClick={() => handleOpenModal()}>
+            <Plus size={16} /> Novo Produto
           </button>
         </div>
       </div>
 
       <div className="module-body">
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          {/* Search */}
-          <div className="p-4" style={{ borderBottom: '1px solid var(--border-color)' }}>
-            <div className="search-bar" style={{ maxWidth: '440px' }}>
-              <Search size={18} className="text-muted" style={{ flexShrink: 0 }} />
-              <input
-                type="text"
-                className="input"
-                placeholder="Buscar por nome ou código de barras..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
-            </div>
+        <div className="toolbar">
+          <div className="search-pill">
+            <Search size={16} className="search-pill-icon" aria-hidden="true" />
+            <input
+              type="text"
+              className="search-pill-input"
+              placeholder="Buscar por nome ou código de barras"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button className="btn-icon search-pill-clear" onClick={() => setSearchTerm('')} title="Limpar busca">
+                <X size={15} />
+              </button>
+            )}
           </div>
 
-          <div className="os-table-container">
-            <table className="os-table">
+          {criticalCount > 0 && (
+            <div className="toolbar-right">
+              <span className="badge badge-warning">
+                <AlertTriangle size={12} style={{ marginRight: 4 }} />
+                {criticalCount} item{criticalCount > 1 ? 's' : ''} para repor
+              </span>
+            </div>
+          )}
+        </div>
+
+        <p className="result-count">
+          {filteredProducts.length} {filteredProducts.length === 1 ? 'produto' : 'produtos'}
+          {searchTerm && ' encontrados'}
+        </p>
+
+        {filteredProducts.length === 0 ? (
+          <div className="empty-state">
+            <Package size={38} className="text-dim" />
+            <p className="empty-state-title">
+              {searchTerm ? 'Nenhum produto encontrado' : 'Nenhum produto cadastrado'}
+            </p>
+            <p className="empty-state-sub">
+              {searchTerm ? `Nada corresponde a "${searchTerm}"` : 'Cadastre o primeiro produto para começar'}
+            </p>
+          </div>
+        ) : (
+          <div className="data-table-wrap">
+            <table className="data-table">
               <thead>
                 <tr>
                   <th>Código</th>
                   <th>Produto</th>
                   <th className="text-center">Estoque</th>
+                  <th className="text-right">Margem</th>
+                  <th className="text-right">Custo</th>
                   <th className="text-right">Preço</th>
-                  <th className="text-right">Ações</th>
+                  <th className="text-right" style={{ width: '110px' }}>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredProducts.map(product => (
                   <tr key={product.id}>
-                    <td className="text-muted text-sm" style={{ fontFamily: 'monospace' }}>
+                    <td className="text-dim" style={{ fontFamily: 'monospace', fontSize: '0.82rem' }}>
                       {product.barcode || '—'}
                     </td>
                     <td className="font-medium">{product.name}</td>
                     <td className="text-center">{stockBadge(product.stock)}</td>
+                    <td className="text-right">{marginBadge(product.price, product.cost)}</td>
+                    <td className="text-right text-muted">{product.cost ? formatCurrency(product.cost) : '—'}</td>
                     <td className="text-right font-bold text-primary">{formatCurrency(product.price)}</td>
                     <td className="text-right">
                       <div className="flex gap-1 justify-end">
-                        <button
-                          className="btn-icon text-info"
-                          onClick={() => handleOpenModal(product)}
-                          title="Editar produto"
-                        >
-                          <Edit2 size={16} />
+                        <button className="icon-outline" onClick={() => handleOpenModal(product)} title="Editar produto">
+                          <Edit2 size={15} />
                         </button>
-                        <button
-                          className="btn-icon text-danger"
-                          onClick={() => handleDelete(product.id)}
-                          title="Excluir produto"
-                        >
-                          <Trash2 size={16} />
+                        <button className="icon-outline icon-outline-danger" onClick={() => handleDelete(product.id)} title="Excluir produto">
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </td>
                   </tr>
                 ))}
-                {filteredProducts.length === 0 && (
-                  <tr>
-                    <td colSpan="5" className="text-center text-muted py-8">
-                      {searchTerm ? `Nenhum produto encontrado para "${searchTerm}"` : 'Nenhum produto cadastrado.'}
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
-        </div>
-
-        {/* Stats footer */}
-        <div className="flex gap-3 mt-4">
-          <div className="card flex-1" style={{ padding: 'var(--s-4)' }}>
-            <span className="text-muted text-xs uppercase tracking-wide">Total de Produtos</span>
-            <p className="font-bold text-2xl mt-1">{products.length}</p>
-          </div>
-          <div className="card flex-1" style={{ padding: 'var(--s-4)' }}>
-            <span className="text-muted text-xs uppercase tracking-wide">Valor em Estoque</span>
-            <p className="font-bold text-2xl mt-1 text-primary">
-              {formatCurrency(products.reduce((acc, p) => acc + (p.price * p.stock), 0))}
-            </p>
-          </div>
-          <div className="card flex-1" style={{ padding: 'var(--s-4)' }}>
-            <span className="text-muted text-xs uppercase tracking-wide">Itens Críticos</span>
-            <p className={`font-bold text-2xl mt-1 ${criticalCount > 0 ? 'text-warning' : 'text-success'}`}>
-              {criticalCount}
-            </p>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* ── Product Modal ── */}
       {isModalOpen && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && handleCloseModal()}>
           <div className="modal-content card">
             <div className="flex justify-between items-center border-bottom pb-4 mb-6">
               <h3 className="text-xl font-bold flex items-center gap-2">

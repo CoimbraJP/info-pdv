@@ -205,13 +205,12 @@ const Config = () => {
       <style>{styles}</style>
 
       <div className="module-header">
-        <h2 className="module-title flex items-center gap-2">
-          <Settings size={22} className="text-primary" />
-          Configurações do Sistema
+        <h2 className="module-title">
+          <Settings size={20} className="text-primary" />
+          Configurações
         </h2>
-        <button className="btn btn-surface" onClick={() => window.print()}>
-          <Eye size={18} />
-          Testar Impressão
+        <button className="btn-outline btn-outline-sm" onClick={() => window.print()}>
+          <Eye size={16} /> Testar Impressão
         </button>
       </div>
 
@@ -219,11 +218,10 @@ const Config = () => {
         <div className="config-wrap">
 
           {/* ── Dados da Loja ── */}
-          <div className="card">
-            <div className="config-card-header">
-              <Store size={20} className="text-primary" />
-              <h3>Dados da Loja</h3>
-            </div>
+          <section className="panel">
+            <header className="panel-head">
+              <h3 className="panel-title"><Store size={17} /> Dados da Loja</h3>
+            </header>
             <form onSubmit={handleSaveStore}>
               <div className="settings-grid mb-6">
                 <div className="form-group">
@@ -260,14 +258,13 @@ const Config = () => {
                 </button>
               </div>
             </form>
-          </div>
+          </section>
 
           {/* ── Impressora Térmica 58mm ── */}
-          <div className="card">
-            <div className="config-card-header">
-              <Printer size={20} className="text-primary" />
-              <h3>Modelo de Impressão — Térmica 58mm</h3>
-            </div>
+          <section className="panel">
+            <header className="panel-head">
+              <h3 className="panel-title"><Printer size={17} /> Impressão — Térmica 58mm</h3>
+            </header>
 
             <div className="thermal-grid mb-6">
               {THERMAL_MODELS.map(model => (
@@ -296,14 +293,13 @@ const Config = () => {
                 </strong>
               </span>
             </div>
-          </div>
+          </section>
 
           {/* ── Backup & Dados ── */}
-          <div className="card">
-            <div className="config-card-header">
-              <Database size={20} className="text-primary" />
-              <h3>Backup &amp; Dados</h3>
-            </div>
+          <section className="panel">
+            <header className="panel-head">
+              <h3 className="panel-title"><Database size={17} /> Backup &amp; Dados</h3>
+            </header>
 
             <p className="text-sm text-muted mb-4">
               Exporte todos os dados (produtos, vendas, ordens de serviço e configurações) para um arquivo
@@ -318,11 +314,11 @@ const Config = () => {
                 <Download size={16} />
                 Exportar Backup (JSON)
               </button>
-              <button className="btn btn-surface" onClick={() => fileInputRef.current?.click()}>
+              <button className="btn-outline btn-outline-sm" onClick={() => fileInputRef.current?.click()}>
                 <Upload size={16} />
                 Importar / Restaurar
               </button>
-              <button className="btn btn-surface" onClick={() => syncNow?.()}>
+              <button className="btn-outline btn-outline-sm" onClick={() => syncNow?.()}>
                 <RefreshCw size={16} />
                 Sincronizar agora
               </button>
@@ -353,7 +349,7 @@ const Config = () => {
                 <span>{backupMsg.text}</span>
               </div>
             )}
-          </div>
+          </section>
 
         </div>
       </div>

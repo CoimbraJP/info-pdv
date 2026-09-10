@@ -5,6 +5,7 @@ import {
   Settings,
   Package,
   Receipt,
+  Tag,
   Cloud,
   CloudOff,
   RefreshCw,
@@ -43,6 +44,7 @@ const menuItems = [
   { id: 'os',        icon: <ClipboardList size={20} />,    label: 'Ordens de Serviço' },
   { id: 'dashboard', icon: <LayoutDashboard size={20} />,  label: 'Dashboard' },
   { id: 'estoque',   icon: <Package size={20} />,          label: 'Estoque' },
+  { id: 'etiquetas', icon: <Tag size={20} />,              label: 'Etiquetas' },
   { id: 'config',    icon: <Settings size={20} />,         label: 'Configurações' },
 ];
 

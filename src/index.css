@@ -653,3 +653,249 @@ input, select, textarea {
 }
 
 
+
+/* ==========================================================================
+   PRIMITIVOS DE UI COMPARTILHADOS
+   Usados por todas as telas (OS, PDV, Vendas, Estoque, Dashboard, Config).
+   Animações apenas com transform/opacity.
+   ========================================================================== */
+
+/* ── Segmented control (abas, filtros, alternância de visualização) ── */
+.seg-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+}
+.seg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-4);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  font-family: var(--font-main);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--t-fast), background-color var(--t-fast), transform var(--t-fast);
+}
+.seg-item:hover { color: var(--text-main); background: var(--surface-hover); }
+.seg-item:active { transform: scale(0.97); }
+.seg-item.is-active { color: var(--bg-color); background: var(--primary-color); }
+.seg-item.seg-icon { padding: var(--s-2); }
+.seg-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--seg-dot, var(--text-dim));
+  flex-shrink: 0;
+}
+.seg-item.is-active .seg-dot { background: var(--bg-color); }
+
+/* ── Botão outline ── */
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-5);
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-main);
+  font-family: var(--font-main);
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform var(--t-fast), border-color var(--t-fast), background-color var(--t-fast), color var(--t-fast);
+}
+.btn-outline:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+  transform: translateY(-1px);
+}
+.btn-outline:active { transform: scale(0.98); }
+.btn-outline:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.btn-outline:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+.btn-outline svg { color: var(--text-muted); transition: color var(--t-fast); }
+.btn-outline:hover:not(:disabled) svg { color: var(--primary-color); }
+.btn-outline-sm { padding: var(--s-2) var(--s-4); font-size: 0.85rem; }
+.btn-outline .caret { transition: transform var(--t-fast); }
+.btn-outline .caret.is-open { transform: rotate(90deg); }
+
+/* ── Botão de ícone outline ── */
+.icon-outline {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: transform var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.icon-outline:hover { color: var(--primary-color); border-color: var(--border-strong); transform: translateY(-1px); }
+.icon-outline:active { transform: scale(0.94); }
+.icon-outline-danger:hover { color: var(--status-danger); border-color: rgba(239, 68, 68, 0.4); }
+
+/* ── Campo de leitura (rótulo em cima, valor embaixo) ── */
+.field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.field + .field { margin-top: var(--s-1); }
+.field-label { font-size: 0.75rem; color: var(--text-dim); letter-spacing: 0.01em; }
+.field-value { font-size: 0.95rem; color: var(--text-main); line-height: 1.35; }
+
+/* ── Painel (card com cabeçalho) ── */
+.panel {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--s-4) var(--s-5) var(--s-5);
+  transition: border-color var(--t-normal), box-shadow var(--t-normal);
+}
+.panel:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--s-3);
+  margin-bottom: var(--s-3);
+}
+.panel-title {
+  display: flex; align-items: center; gap: var(--s-3);
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.05rem; font-weight: 600;
+  color: var(--text-main);
+}
+.panel-title svg { color: var(--primary-color); }
+.panel-title-toggle {
+  background: none; border: none; padding: 0; cursor: pointer;
+  transition: color var(--t-fast);
+}
+.panel-title-toggle:hover { color: var(--text-main); }
+.panel-title-toggle .caret { color: var(--text-dim); transition: transform var(--t-fast), color var(--t-fast); }
+.panel-title-toggle:hover .caret { color: var(--primary-color); }
+.panel-title-toggle .caret.is-open { transform: rotate(90deg); }
+
+/* ── Busca em pill ── */
+.search-pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 320px;
+  max-width: 460px;
+}
+.search-pill-icon {
+  position: absolute; left: var(--s-4);
+  color: var(--text-dim); pointer-events: none;
+  transition: color var(--t-fast);
+}
+.search-pill-input {
+  width: 100%;
+  height: 42px;
+  padding: 0 var(--s-10);
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  color: var(--text-main);
+  font-family: var(--font-main);
+  font-size: 0.9rem;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.search-pill-input::placeholder { color: var(--text-dim); }
+.search-pill-input:hover:not(:focus) { border-color: var(--border-strong); }
+.search-pill-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px var(--primary-subtle);
+}
+.search-pill:focus-within .search-pill-icon { color: var(--primary-color); }
+.search-pill-clear { position: absolute; right: var(--s-2); }
+
+/* ── Barra de ferramentas de listagem ── */
+.toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--s-4); flex-wrap: wrap;
+  margin-bottom: var(--s-4);
+}
+.toolbar-right { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; }
+.result-count {
+  margin: 0 0 var(--s-3) var(--s-1);
+  font-size: 0.78rem; color: var(--text-dim); letter-spacing: 0.02em;
+}
+
+/* ── Estado vazio ── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--s-2);
+  padding: var(--s-12) var(--s-6);
+  background: var(--surface-color);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+}
+.empty-state-title { font-weight: 600; color: var(--text-muted); }
+.empty-state-sub { font-size: 0.84rem; color: var(--text-dim); }
+
+/* ── Tabela de dados ── */
+.data-table-wrap {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  padding: var(--s-3) var(--s-5);
+  text-align: left;
+  font-size: 0.68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-dim);
+  background: var(--surface-hover);
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+.data-table td {
+  padding: var(--s-3) var(--s-5);
+  font-size: 0.9rem;
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border-color);
+}
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr { transition: background-color var(--t-fast); }
+.data-table tbody tr:hover { background: var(--surface-hover); }
+.data-table tfoot td {
+  background: var(--surface-hover);
+  font-weight: 700;
+  border-bottom: none;
+}
+
+/* ── Métrica compacta no cabeçalho ── */
+.stat-chip {
+  display: inline-flex; align-items: center; gap: var(--s-3);
+  padding: var(--s-2) var(--s-4);
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: border-color var(--t-fast);
+}
+.stat-chip:hover { border-color: var(--border-strong); }
+.stat-chip-label {
+  display: block;
+  font-size: 0.66rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+.stat-chip-value { display: block; font-size: 0.95rem; font-weight: 700; color: var(--text-main); }
+
+/* ── Contador ── */
+.count-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--primary-subtle);
+  color: var(--primary-color);
+  font-size: 0.7rem; font-weight: 700;
+}

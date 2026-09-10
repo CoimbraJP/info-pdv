@@ -5,6 +5,7 @@ import OS from './modules/OS';
 import Dashboard from './modules/Dashboard';
 import Config from './modules/Config';
 import Estoque from './modules/Estoque';
+import Etiquetas from './modules/Etiquetas';
 import Vendas from './modules/Vendas';
 import { GlobalProvider } from './context/GlobalState';
 import './App.css';
@@ -19,6 +20,7 @@ function App() {
       case 'os':        return <OS />;
       case 'dashboard': return <Dashboard />;
       case 'estoque':   return <Estoque />;
+      case 'etiquetas': return <Etiquetas />;
       case 'vendas':    return <Vendas />;
       case 'config':    return <Config />;
       default:          return <PDV />;

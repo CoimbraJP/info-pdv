@@ -1,23 +1,105 @@
-import { useState, useRef } from 'react';
-import { Plus, Search, Wrench, User, FileText, CheckCircle, Clock, Printer, LayoutGrid, List, Trash2, AlertCircle } from 'lucide-react';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { useState, useRef, useEffect } from 'react';
+import { Plus, Search, Wrench, User, FileText, CheckCircle, Clock, Printer, LayoutGrid, List, Trash2, X, ChevronDown, ChevronRight, Pencil, Save, Laptop } from 'lucide-react';
+import { formatCurrency, formatDate, parseDate } from '../utils/formatters';
 import { useGlobalState } from '../context/GlobalState';
-import { OS_STATUS, OS_STATUS_LIST, normalizeStatus } from '../constants/osStatus';
+import { OS_STATUS, OS_STATUS_WORK, OS_STATUS_META, normalizeStatus } from '../constants/osStatus';
 import './OS.css';
 
 const EMPTY_ADDRESS = { cep: '', street: '', number: '', neighborhood: '', city: '', state: '' };
+
+/** Endereço em duas linhas: "Rua, nº - Bairro" / "Cidade - UF, CEP". */
+const addressLines = (addr) => {
+  if (!addr) return [];
+  const l1 = [[addr.street, addr.number].filter(Boolean).join(', '), addr.neighborhood]
+    .filter(Boolean).join(' - ');
+  const l2 = [[addr.city, addr.state].filter(Boolean).join(' - '), addr.cep]
+    .filter(Boolean).join(', ');
+  return [l1, l2].filter(Boolean);
+};
+
+/** Extrai o S/N de `deviceFull` ("Tipo Marca - S/N: XXX"). */
+const deviceSerial = (os) => {
+  const m = String(os?.deviceFull || '').match(/S\/N:\s*(.+)$/i);
+  const sn = m?.[1]?.trim();
+  return sn && sn.toLowerCase() !== 'n/a' ? `S/N ${sn}` : '';
+};
+
+/**
+ * Badge de status: substitui o <select> por um controle próprio.
+ * Só alterna entre os status de trabalho — "Encerrado" vem do botão Encerrar.
+ */
+const StatusPill = ({ status, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const meta = OS_STATUS_META[status] || OS_STATUS_META[OS_STATUS.ANALISE];
+  const locked = status === OS_STATUS.ENCERRADO;
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="status-pill-wrap" ref={ref}>
+      <button
+        type="button"
+        className={`status-pill ${open ? 'is-open' : ''}`}
+        style={{ '--pill-color': meta.color, '--pill-bg': meta.bg }}
+        onClick={() => !locked && setOpen(o => !o)}
+        disabled={locked}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        title={locked ? 'OS encerrada' : 'Alterar situação'}
+      >
+        <span className="status-dot" aria-hidden="true" />
+        <span className="status-pill-label">{meta.label}</span>
+        {!locked && <ChevronDown size={13} className="status-pill-caret" aria-hidden="true" />}
+      </button>
+
+      {open && (
+        <ul className="status-menu" role="listbox">
+          {OS_STATUS_WORK.map((s) => {
+            const m = OS_STATUS_META[s];
+            return (
+              <li key={s}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={s === status}
+                  className={`status-menu-item ${s === status ? 'is-active' : ''}`}
+                  style={{ '--pill-color': m.color }}
+                  onClick={() => { onChange(s); setOpen(false); }}
+                >
+                  <span className="status-dot" aria-hidden="true" />
+                  {m.label}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+};
 
 const OS = () => {
   const { osList, setOsList, settings } = useGlobalState();
   const [activeTab, setActiveTab] = useState('list'); // 'list' | 'new'
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
-  const [cardSize, setCardSize] = useState('medium'); // 'small' | 'medium' | 'large'
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingOS, setEditingOS] = useState(null);
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [serviceItems, setServiceItems] = useState([]);
   const [newItem, setNewItem] = useState({ description: '', price: '' });
+  const [editingServiceId, setEditingServiceId] = useState(null);
   const [address, setAddress] = useState(EMPTY_ADDRESS);
   const [accessories, setAccessories] = useState('');
   const [clientHistory, setClientHistory] = useState([]); // OS anteriores do CPF digitado
@@ -85,6 +167,7 @@ const OS = () => {
   };
   
   const [isDeviceExpanded, setIsDeviceExpanded] = useState(false);
+  const [isServicesExpanded, setIsServicesExpanded] = useState(true);
 
   const handleEdit = (os) => {
     setIsDeviceExpanded(false);
@@ -108,6 +191,21 @@ const OS = () => {
     setEditingOS(null);
   };
 
+  /** "Cliente desde": data da primeira OS daquele CPF. */
+  const clientSince = (cpf) => {
+    const clean = (cpf || '').replace(/\D/g, '');
+    if (!clean) return '—';
+    const dates = osList
+      .filter(os => (os.clientCPF || '').replace(/\D/g, '') === clean)
+      .map(os => parseDate(os.date))
+      .filter(Boolean)
+      .sort((a, b) => a - b);
+    return dates.length ? formatDate(dates[0]) : '—';
+  };
+
+  // O modal de edição de cliente será implementado depois.
+  const handleEditClient = () => {};
+
   // Persiste também a LISTA de serviços (antes só o total era salvo e o
   // detalhamento do que foi feito no equipamento se perdia ao fechar a tela).
   const persistEditing = (extra = {}) => {
@@ -128,28 +226,37 @@ const OS = () => {
   });
   const saveEdit = () => persistEditing();
 
-  const addServiceItem = () => {
+  const openNewService = () => {
+    setEditingServiceId(null);
+    setNewItem({ description: '', price: '' });
+    setShowServiceModal(true);
+  };
+
+  const openEditService = (item) => {
+    setEditingServiceId(item.id);
+    setNewItem({ description: item.description, price: String(item.price) });
+    setShowServiceModal(true);
+  };
+
+  /** Grava serviço novo ou altera o existente e mantém o total sincronizado. */
+  const submitService = () => {
     if (!newItem.description || !newItem.price) return;
-    const item = {
-      id: Date.now(),
-      description: newItem.description,
-      price: parseFloat(newItem.price)
-    };
-    const newItems = [...serviceItems, item];
+    const price = parseFloat(newItem.price) || 0;
+    const newItems = editingServiceId
+      ? serviceItems.map(s => (s.id === editingServiceId ? { ...s, description: newItem.description, price } : s))
+      : [...serviceItems, { id: crypto.randomUUID(), description: newItem.description, price }];
+
     setServiceItems(newItems);
     setNewItem({ description: '', price: '' });
-    
-    // Sync top value
-    const newTotal = newItems.reduce((acc, curr) => acc + curr.price, 0);
-    setEditingOS(prev => ({ ...prev, serviceValue: newTotal }));
+    setEditingServiceId(null);
+    setShowServiceModal(false);
+    setEditingOS(prev => ({ ...prev, serviceValue: newItems.reduce((a, s) => a + s.price, 0) }));
   };
 
   const removeServiceItem = (id) => {
     const newItems = serviceItems.filter(item => item.id !== id);
     setServiceItems(newItems);
-    // Sync top value
-    const newTotal = newItems.reduce((acc, curr) => acc + curr.price, 0);
-    setEditingOS(prev => ({ ...prev, serviceValue: newTotal }));
+    setEditingOS(prev => ({ ...prev, serviceValue: newItems.reduce((a, s) => a + s.price, 0) }));
   };
 
   const totalServices = serviceItems.reduce((acc, item) => acc + item.price, 0);
@@ -208,14 +315,6 @@ const OS = () => {
     if (savedAddress) setAddress({ ...EMPTY_ADDRESS, ...savedAddress });
   };
 
-  const getStatusColor = (status) => {
-    switch (normalizeStatus(status)) {
-      case OS_STATUS.ANALISE: return 'status-warning';
-      case OS_STATUS.MARCONDES: return 'text-primary font-bold';
-      case OS_STATUS.ENCERRADO: return 'opacity-50 grayscale';
-      default: return 'text-muted';
-    }
-  };
 
 
   const matchesSearch = (os) => {
@@ -232,6 +331,7 @@ const OS = () => {
     if (searchTerm.trim()) return true;
     const status = normalizeStatus(os.status);
     if (filter === 'analise') return status === OS_STATUS.ANALISE;
+    if (filter === 'pronto') return status === OS_STATUS.PRONTO;
     if (filter === 'marcondes') return status === OS_STATUS.MARCONDES;
     if (filter === 'closed') return status === OS_STATUS.ENCERRADO;
     if (filter === 'all') return status !== OS_STATUS.ENCERRADO;
@@ -239,29 +339,35 @@ const OS = () => {
   });
 
   const filterOptions = [
-    { id: 'analise', label: '1 - EM ANÁLISE' },
-    { id: 'marcondes', label: '2 - MARCONDES' },
-    { id: 'all', label: '3 - TODOS' },
-    { id: 'closed', label: '4 - ENCERRADOS' },
+    { id: 'all',       label: 'Ativas' },
+    { id: 'analise',   label: 'Em análise',   color: 'var(--status-warning)' },
+    { id: 'pronto',    label: 'Prontas',      color: 'var(--status-success)' },
+    { id: 'marcondes', label: 'Marcondes',    color: 'var(--status-info)' },
+    { id: 'closed',    label: 'Encerradas' },
   ];
+
 
   return (
     <div className="os-container">
-      <div className="module-header">
-        <div className="flex justify-start items-center gap-6">
-          <h2 className="module-title">Ordens de Serviço</h2>
-          <div className="flex gap-sm">
-            <button 
-              className={`btn ${activeTab === 'list' ? 'btn-primary' : 'btn-surface'}`}
-              onClick={() => setActiveTab('list')}
+      <div className="module-header os-module-header">
+        <h2 className="module-title">Ordens de Serviço</h2>
+        <div className="os-header-actions">
+          <div className="seg-control" role="tablist" aria-label="Modo da tela">
+            <button
+              role="tab"
+              aria-selected={activeTab === 'list'}
+              className={`seg-item ${activeTab === 'list' ? 'is-active' : ''}`}
+              onClick={() => { setActiveTab('list'); setEditingOS(null); }}
             >
-              <FileText size={20} className="mr-2" /> Listagem
+              <FileText size={15} /> Listagem
             </button>
-            <button 
-              className={`btn ${activeTab === 'new' ? 'btn-primary' : 'btn-surface'}`}
-              onClick={() => setActiveTab('new')}
+            <button
+              role="tab"
+              aria-selected={activeTab === 'new'}
+              className={`seg-item ${activeTab === 'new' ? 'is-active' : ''}`}
+              onClick={() => { setActiveTab('new'); setEditingOS(null); }}
             >
-              <Plus size={20} className="mr-2" /> Nova OS
+              <Plus size={15} /> Nova OS
             </button>
           </div>
         </div>
@@ -270,144 +376,141 @@ const OS = () => {
       <div className="module-body">
         {activeTab === 'list' && !editingOS && (
           <div className="os-list-view">
-            <div className="filter-container mb-4">
-              <div className="flex justify-between items-center w-full">
-                <div className="search-bar">
-                  <Search size={20} className="text-muted" />
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="Buscar OS por cliente, número, equipamento, telefone ou CPF..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-
-                <div className="flex gap-4 items-center">
-                  {viewMode === 'cards' && (
-                    <div className="view-mode-toggle flex gap-xs bg-surface p-1 rounded-md border border-color">
-                      <button 
-                        className={`btn-icon ${cardSize === 'small' ? 'active' : ''}`}
-                        onClick={() => setCardSize('small')}
-                        title="Cards Pequenos"
-                      >
-                        <span className="font-bold text-xs" style={{fontFamily:'monospace'}}>S</span>
-                      </button>
-                      <button 
-                        className={`btn-icon ${cardSize === 'medium' ? 'active' : ''}`}
-                        onClick={() => setCardSize('medium')}
-                        title="Cards Médios"
-                      >
-                        <span className="font-bold text-xs" style={{fontFamily:'monospace'}}>M</span>
-                      </button>
-                      <button 
-                        className={`btn-icon ${cardSize === 'large' ? 'active' : ''}`}
-                        onClick={() => setCardSize('large')}
-                        title="Cards Grandes"
-                      >
-                        <span className="font-bold text-xs" style={{fontFamily:'monospace'}}>L</span>
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="view-mode-toggle flex gap-xs bg-surface p-1 rounded-md border border-color">
-                  <button 
-                    className={`btn-icon ${viewMode === 'cards' ? 'active' : ''}`}
-                    onClick={() => setViewMode('cards')}
-                    title="Visualização em Cards"
-                  >
-                    <LayoutGrid size={20} />
+            <div className="os-toolbar">
+              <div className="os-search">
+                <Search size={16} className="os-search-icon" aria-hidden="true" />
+                <input
+                  type="text"
+                  className="os-search-input"
+                  placeholder="Buscar por cliente, nº da OS, equipamento, telefone ou CPF"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {searchTerm && (
+                  <button className="btn-icon os-search-clear" onClick={() => setSearchTerm('')} title="Limpar busca">
+                    <X size={15} />
                   </button>
-                  <button 
-                    className={`btn-icon ${viewMode === 'table' ? 'active' : ''}`}
-                    onClick={() => setViewMode('table')}
-                    title="Visualização em Lista (Excel)"
-                  >
-                    <List size={20} />
-                  </button>
-                </div>
-                </div>
+                )}
               </div>
-              
-              <div className="filter-chips mt-4">
-                {filterOptions.map(opt => (
-                  <button 
-                    key={opt.id}
-                    className={`filter-chip ${filter === opt.id ? 'active' : ''}`}
-                    onClick={() => setFilter(opt.id)}
+
+              <div className="os-toolbar-right">
+                <div className="seg-control" role="group" aria-label="Situação">
+                  {filterOptions.map(opt => (
+                    <button
+                      key={opt.id}
+                      className={`seg-item ${filter === opt.id ? 'is-active' : ''}`}
+                      onClick={() => setFilter(opt.id)}
+                      style={opt.color ? { '--seg-dot': opt.color } : undefined}
+                    >
+                      {opt.color && <span className="seg-dot" aria-hidden="true" />}
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="seg-control" role="group" aria-label="Visualização">
+                  <button
+                    className={`seg-item seg-icon ${viewMode === 'cards' ? 'is-active' : ''}`}
+                    onClick={() => setViewMode('cards')}
+                    title="Cards"
                   >
-                    {opt.label}
+                    <LayoutGrid size={16} />
                   </button>
-                ))}
+                  <button
+                    className={`seg-item seg-icon ${viewMode === 'table' ? 'is-active' : ''}`}
+                    onClick={() => setViewMode('table')}
+                    title="Lista"
+                  >
+                    <List size={16} />
+                  </button>
+                </div>
               </div>
             </div>
 
-            {viewMode === 'cards' ? (
-              <div className={`os-grid size-${cardSize}`}>
+            <p className="os-result-count">
+              {filteredOS.length} {filteredOS.length === 1 ? 'ordem' : 'ordens'}
+              {searchTerm && ' encontradas'}
+            </p>
+
+            {filteredOS.length === 0 ? (
+              <div className="os-empty">
+                <FileText size={38} className="text-dim" />
+                <p className="os-empty-title">
+                  {searchTerm ? 'Nenhuma OS encontrada' : 'Nenhuma OS nesta situação'}
+                </p>
+                <p className="os-empty-sub">
+                  {searchTerm ? `Nada corresponde a "${searchTerm}"` : 'As ordens abertas aparecem aqui'}
+                </p>
+              </div>
+            ) : viewMode === 'cards' ? (
+              <div className="os-grid">
                 {filteredOS.map(os => {
+                  const meta = OS_STATUS_META[normalizeStatus(os.status)];
                   return (
-                    <div key={os.id} className="os-card-wrapper">
-                      <div className="os-card card">
-                        <div className="os-card-front">
-                          <div className="os-card-header">
-                            <span className="os-number">OS #{os.id}</span>
-                            <span className={`status-badge ${getStatusColor(os.status)}`}>{os.status}</span>
-                          </div>
-                          <div className="os-card-body">
-                            <div className="os-info-row">
-                              <User size={16} className="text-muted" />
-                              <span>{os.client}</span>
-                            </div>
-                            <div className="os-info-row">
-                              <Wrench size={16} className="text-muted" />
-                              <span>{os.device}</span>
-                            </div>
-                            <div className="os-info-row">
-                              <Clock size={16} className="text-muted" />
-                              <span>{formatDate(os.date)}</span>
-                            </div>
-                            <div className="os-info-row mt-1 pt-1" style={{ borderTop: '1px solid var(--border-color)' }}>
-                              <AlertCircle size={16} className="text-danger" />
-                              <span className="text-sm line-clamp-2" title={os.defect}>{os.defect || 'Não informado'}</span>
-                            </div>
-                          </div>
-                          <div className="os-card-footer">
-                            <button className="btn btn-primary w-full" onClick={() => handleEdit(os)}>Editar / Serviços</button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <button
+                      key={os.id}
+                      className="os-card"
+                      style={{ '--card-accent': meta.color }}
+                      onClick={() => handleEdit(os)}
+                      title="Abrir OS"
+                    >
+                      <span className="os-card-top">
+                        <span className="os-card-number">#{os.id}</span>
+                        <span className="os-card-status" style={{ '--pill-color': meta.color, '--pill-bg': meta.bg }}>
+                          <span className="status-dot" aria-hidden="true" />
+                          {meta.label}
+                        </span>
+                      </span>
+
+                      <span className="os-card-client">{os.client || 'Cliente não informado'}</span>
+                      <span className="os-card-device">{os.device || os.deviceFull || '—'}</span>
+
+                      <span className="os-card-defect">{os.defect || 'Defeito não informado'}</span>
+
+                      <span className="os-card-foot">
+                        <span className="os-card-date"><Clock size={13} /> {formatDate(os.date)}</span>
+                        {os.serviceValue > 0 && (
+                          <span className="os-card-value">{formatCurrency(os.serviceValue)}</span>
+                        )}
+                      </span>
+                    </button>
                   );
                 })}
               </div>
             ) : (
-              <div className="os-table-container card">
-                <table className="os-table">
+              <div className="os-table-wrap">
+                <table className="os-list-table">
                   <thead>
                     <tr>
-                      <th>Nº OS</th>
-                      <th>CLIENTE</th>
-                      <th>EQUIPAMENTO</th>
-                      <th>DATA</th>
-                      <th>STATUS</th>
-                      <th className="text-right">AÇÕES</th>
+                      <th>Nº</th>
+                      <th>Cliente</th>
+                      <th>Equipamento</th>
+                      <th>Entrada</th>
+                      <th>Situação</th>
+                      <th className="text-right">Valor</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredOS.map(os => (
-                      <tr key={os.id}>
-                        <td className="font-bold">#{os.id}</td>
-                        <td>{os.client}</td>
-                        <td>{os.device}</td>
-                        <td>{formatDate(os.date)}</td>
-                        <td>
-                          <span className={`status-badge ${getStatusColor(os.status)}`}>{os.status}</span>
-                        </td>
-                        <td className="text-right">
-                          <button className="btn btn-primary btn-sm" onClick={() => handleEdit(os)}>Editar</button>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredOS.map(os => {
+                      const meta = OS_STATUS_META[normalizeStatus(os.status)];
+                      return (
+                        <tr key={os.id} onClick={() => handleEdit(os)} title="Abrir OS">
+                          <td className="os-list-number">#{os.id}</td>
+                          <td className="font-medium">{os.client || '—'}</td>
+                          <td className="text-muted">{os.device || '—'}</td>
+                          <td className="text-muted">{formatDate(os.date)}</td>
+                          <td>
+                            <span className="os-card-status" style={{ '--pill-color': meta.color, '--pill-bg': meta.bg }}>
+                              <span className="status-dot" aria-hidden="true" />
+                              {meta.label}
+                            </span>
+                          </td>
+                          <td className="text-right">
+                            {os.serviceValue > 0 ? formatCurrency(os.serviceValue) : <span className="text-dim">—</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -416,249 +519,217 @@ const OS = () => {
         )}
 
         {editingOS && (
-          <div className="os-edit-view card">
-            <div className="edit-header border-bottom mb-6 pb-4">
-              <div className="flex justify-between items-center w-full flex-wrap gap-4">
-                <h2 className="text-xl font-bold text-muted">O.S Nº {editingOS.id}</h2>
-                <div className="flex gap-sm ml-auto">
-                  <button className="btn btn-success" onClick={handleCloseOS}>
-                    <CheckCircle size={18} className="mr-2" /> Encerrar OS
-                  </button>
-                  <button className="btn btn-surface">
-                    <Printer size={18} className="mr-2" /> Re-imprimir Nota
-                  </button>
-                  <button className="btn btn-primary" onClick={saveEdit}>
-                    GRAVAR OS
-                  </button>
-                  <button className="btn btn-danger" onClick={closeEdit}>
-                    FECHAR
-                  </button>
-                </div>
+          <div className="os-edit-view">
+            {/* ── Cabeçalho: uma única linha ── */}
+            <div className="os-topbar">
+              <h2 className="os-topbar-title">O.S Nº {editingOS.id}</h2>
+
+              <StatusPill
+                status={normalizeStatus(editingOS.status)}
+                onChange={(s) => setEditingOS({ ...editingOS, status: s, readyDate: '' })}
+              />
+
+              <div className="os-topbar-actions">
+                <button className="btn-outline" onClick={handleCloseOS}>
+                  <CheckCircle size={17} /> Encerrar OS
+                </button>
+                <button className="btn-outline" onClick={() => window.print()}>
+                  <Printer size={17} /> Re-imprimir Nota
+                </button>
+                <button className="btn-outline" onClick={saveEdit}>
+                  <Save size={17} /> Gravar OS
+                </button>
+                <button className="btn-outline" onClick={closeEdit}>
+                  <X size={17} /> Fechar
+                </button>
               </div>
             </div>
 
-            <div className="edit-body">
-              {/* Client Info Section */}
-              <div className="edit-section mb-6">
-                <h4 className="section-title"><User size={18} /> Dados do Cliente</h4>
-                <div className="card bg-surface-hover p-5" style={{ borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
-                  <div className="flex justify-between items-start mb-4 pb-4 border-bottom">
-                     <div className="flex items-center gap-4" style={{ flex: 1 }}>
-                        <div className="avatar" style={{ width: '56px', height: '56px', fontSize: '1.6rem', flexShrink: 0 }}>
-                          {editingOS.client ? editingOS.client.charAt(0).toUpperCase() : 'C'}
-                        </div>
-                        {/* Todos os campos do cliente são editáveis, EXCETO o CPF (chave única) */}
-                        <div className="grid grid-cols-2 gap-4" style={{ flex: 1 }}>
-                          <div className="form-group">
-                            <label>Nome</label>
-                            <input
-                              type="text" className="input"
-                              value={editingOS.client || ''}
-                              onChange={(e) => setEditingOS({ ...editingOS, client: e.target.value })}
-                            />
-                          </div>
-                          <div className="form-group">
-                            <label>CPF/CNPJ (chave única — não editável)</label>
-                            <input
-                              type="text" className="input" disabled
-                              value={editingOS.clientCPF || 'Não informado'}
-                              style={{ fontFamily: 'monospace', cursor: 'not-allowed', opacity: 0.7 }}
-                              title="O CPF identifica o cliente e não pode ser alterado"
-                            />
-                          </div>
-                          <div className="form-group">
-                            <label>Telefone / WhatsApp</label>
-                            <input
-                              type="text" className="input"
-                              value={editingOS.clientPhone || ''}
-                              onChange={(e) => setEditingOS({ ...editingOS, clientPhone: e.target.value })}
-                            />
-                          </div>
-                          <div className="form-group">
-                            <label>Data de Nascimento</label>
-                            <input
-                              type="date" className="input"
-                              value={editingOS.clientBirthDate || ''}
-                              onChange={(e) => setEditingOS({ ...editingOS, clientBirthDate: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                     </div>
-                     <a
-                        href={`https://wa.me/55${(editingOS.clientPhone || '').replace(/\D/g, '')}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="btn btn-success"
-                        title="Abrir no WhatsApp"
-                      >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12.031 6.172c-2.32 0-4.518.892-6.193 2.512-3.483 3.388-3.483 8.901 0 12.289l-.438 2.603 2.705-.443c1.282.723 2.731 1.102 4.22 1.102.004 0 .008 0 .012 0 2.32 0 4.518-.892 6.193-2.512 3.483-3.388 3.483-8.901 0-12.289-1.675-1.62-3.873-2.512-6.193-2.512zm3.384 12.076c-.196.546-1.148 1.033-1.583 1.102-.434.07-1.015.03-1.686-.19-.462-.15-1.175-.406-1.996-.754-3.456-1.454-5.733-4.919-5.903-5.145-.17-.226-1.391-1.848-1.391-3.527 0-1.68.869-2.507 1.181-2.844.312-.337.689-.421.919-.421.23 0 .46.001.656.01.21.008.491-.08.769.587.279.667.952 2.321 1.034 2.489.082.168.137.363.027.587-.11.223-.164.363-.329.558-.164.196-.345.439-.493.588-.164.166-.335.347-.144.674.191.327.849 1.4 1.821 2.269.972.869 1.792 1.14 2.121 1.304.329.164.52.138.713-.082.193-.219.822-.958 1.041-1.287.219-.329.438-.274.74-.164.301.11 1.917.904 2.245 1.068.328.164.547.245.628.383.082.138.082.793-.114 1.339z"/></svg>
-                        WhatsApp
-                      </a>
+            {/* ── 1. Cliente ── */}
+            <section className="os-panel">
+              <header className="os-panel-head">
+                <h4 className="os-panel-title"><User size={17} /> Cliente</h4>
+              </header>
+
+              <div className="os-inner">
+                <div className="deco deco-top" aria-hidden="true">
+                  <span className="deco-dots" />
+                  <span className="deco-tile"><User size={34} strokeWidth={1.5} /></span>
+                </div>
+
+                <div className="inner-content">
+                  <h3 className="client-name">{editingOS.client || 'Cliente não informado'}</h3>
+
+                  <div className="field">
+                    <span className="field-label">CPF</span>
+                    <span className="field-value">{editingOS.clientCPF || 'Não informado'}</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-6 pt-2">
-                    <div>
-                       <span className="text-muted text-xs uppercase tracking-wide block mb-1">Data Entrada</span>
-                       <span className="font-medium text-main">{formatDate(editingOS.entryDate)}</span>
-                    </div>
-                    <div>
-                       <span className="text-muted text-xs uppercase tracking-wide block mb-1">Data de Saída (Encerrada)</span>
-                       <span className="font-medium text-main">{editingOS.readyDate ? formatDate(editingOS.readyDate) : 'Pendente'}</span>
-                    </div>
+
+                  <div className="field">
+                    <span className="field-label">Telefone / WhatsApp</span>
+                    <span className="field-value field-phone">
+                      {editingOS.clientPhone || 'Não informado'}
+                      {editingOS.clientPhone && (
+                        <a
+                          href={`https://wa.me/55${editingOS.clientPhone.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="wa-btn"
+                          title="Abrir conversa no WhatsApp"
+                          aria-label="Abrir conversa no WhatsApp"
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.031 6.172c-2.32 0-4.518.892-6.193 2.512-3.483 3.388-3.483 8.901 0 12.289l-.438 2.603 2.705-.443c1.282.723 2.731 1.102 4.22 1.102.004 0 .008 0 .012 0 2.32 0 4.518-.892 6.193-2.512 3.483-3.388 3.483-8.901 0-12.289-1.675-1.62-3.873-2.512-6.193-2.512zm3.384 12.076c-.196.546-1.148 1.033-1.583 1.102-.434.07-1.015.03-1.686-.19-.462-.15-1.175-.406-1.996-.754-3.456-1.454-5.733-4.919-5.903-5.145-.17-.226-1.391-1.848-1.391-3.527 0-1.68.869-2.507 1.181-2.844.312-.337.689-.421.919-.421.23 0 .46.001.656.01.21.008.491-.08.769.587.279.667.952 2.321 1.034 2.489.082.168.137.363.027.587-.11.223-.164.363-.329.558-.164.196-.345.439-.493.588-.164.166-.335.347-.144.674.191.327.849 1.4 1.821 2.269.972.869 1.792 1.14 2.121 1.304.329.164.52.138.713-.082.193-.219.822-.958 1.041-1.287.219-.329.438-.274.74-.164.301.11 1.917.904 2.245 1.068.328.164.547.245.628.383.082.138.082.793-.114 1.339z"/></svg>
+                        </a>
+                      )}
+                    </span>
                   </div>
-                  {/* Endereço (também editável) */}
-                  <div className="grid grid-cols-2 gap-4 pt-4 mt-4 border-top">
-                    <div className="form-group">
-                      <label>CEP</label>
-                      <input
-                        type="text" className="input"
-                        value={editingOS.clientAddress?.cep || ''}
-                        onChange={(e) => setEditingOS({ ...editingOS, clientAddress: { ...editingOS.clientAddress, cep: e.target.value } })}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Rua / Logradouro</label>
-                      <input
-                        type="text" className="input"
-                        value={editingOS.clientAddress?.street || ''}
-                        onChange={(e) => setEditingOS({ ...editingOS, clientAddress: { ...editingOS.clientAddress, street: e.target.value } })}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Número</label>
-                      <input
-                        type="text" className="input"
-                        value={editingOS.clientAddress?.number || ''}
-                        onChange={(e) => setEditingOS({ ...editingOS, clientAddress: { ...editingOS.clientAddress, number: e.target.value } })}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Bairro / Cidade</label>
-                      <input
-                        type="text" className="input"
-                        value={[editingOS.clientAddress?.neighborhood, editingOS.clientAddress?.city].filter(Boolean).join(' / ')}
-                        disabled
-                        style={{ opacity: 0.7 }}
-                        title="Preenchido automaticamente pelo CEP"
-                      />
-                    </div>
+
+                  <div className="field">
+                    <span className="field-label">Endereço</span>
+                    <span className="field-value">
+                      {addressLines(editingOS.clientAddress).length
+                        ? addressLines(editingOS.clientAddress).map((l, i) => <span key={i} className="addr-line">{l}</span>)
+                        : 'Não informado'}
+                    </span>
+                  </div>
+
+                  <div className="inner-divider" />
+
+                  <div className="client-foot">
+                    <span className="client-since">
+                      Cliente desde: <strong>{clientSince(editingOS.clientCPF)}</strong>
+                    </span>
+                    <button type="button" className="btn-outline btn-outline-sm" onClick={handleEditClient}>
+                      <Pencil size={15} /> Editar Cliente
+                    </button>
                   </div>
                 </div>
               </div>
+            </section>
 
-              {/* Status and Dates */}
-              <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '1.5rem' }} className="mb-6">
-                <div className="form-group">
-                  <label>SITUAÇÃO DA OS</label>
-                  <select 
-                    className="input select" 
-                    value={editingOS.status}
-                    onChange={(e) => {
-                      const newStatus = e.target.value;
-                      // Encerrar carimba a data de saída; reabrir limpa
-                      const newReadyDate = newStatus === OS_STATUS.ENCERRADO
-                        ? new Date().toISOString().split('T')[0]
-                        : '';
-                      setEditingOS({ ...editingOS, status: newStatus, readyDate: newReadyDate });
-                    }}
-                  >
-                    {OS_STATUS_LIST.map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Valor Total do Serviço</label>
-                  <div className="flex items-center gap-xs">
-                    <span className="text-muted">R$</span>
-                    <input 
-                      type="text" 
-                      className="input font-bold bg-surface" 
-                      value={totalServices.toFixed(2)}
-                      disabled
-                      style={{ cursor: 'not-allowed', opacity: 0.8 }}
-                    />
-                  </div>
-                </div>
-              </div>
+            {/* ── 2. Equipamento ── */}
+            <section className="os-panel">
+              <header className="os-panel-head">
+                <h4 className="os-panel-title"><Laptop size={17} /> Equipamento</h4>
+              </header>
 
-              {/* Device Info */}
-              <div className="edit-section mb-6">
-                <h4 className="section-title"><Wrench size={18} /> Dados do Equipamento</h4>
-                <div 
-                  className="info-box card bg-surface-hover cursor-pointer"
-                  onClick={() => setIsDeviceExpanded(!isDeviceExpanded)}
-                  style={{ display: 'block', width: '100%' }}
-                >
-                  <div className="flex justify-between items-center w-full">
-                    <p className="font-bold text-lg">{editingOS.deviceFull}</p>
-                    <span className="text-xs text-primary">{isDeviceExpanded ? 'Ocultar detalhes' : 'Ver detalhes'}</span>
+              <div className="os-inner">
+                <div className="deco" aria-hidden="true">
+                  <span className="deco-dots" />
+                  <span className="deco-tile"><Laptop size={34} strokeWidth={1.5} /></span>
+                </div>
+
+                <div className="inner-content">
+                  <h3 className="device-name">{editingOS.device || editingOS.deviceFull || '—'}</h3>
+
+                  <div className="device-grid">
+                    <div className="field">
+                      <span className="field-label">Senha</span>
+                      <span className="field-value">{editingOS.devicePassword || 'Não informada'}</span>
+                    </div>
+                    <div className="field">
+                      <span className="field-label">Defeito informado</span>
+                      <span className="field-value">{editingOS.defect || 'Não informado'}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-outline btn-outline-sm"
+                      onClick={() => setIsDeviceExpanded(!isDeviceExpanded)}
+                      aria-expanded={isDeviceExpanded}
+                    >
+                      {isDeviceExpanded ? 'Ocultar detalhes' : 'Ver detalhes'}
+                      <ChevronRight size={15} className={`caret ${isDeviceExpanded ? 'is-open' : ''}`} />
+                    </button>
                   </div>
-                  
+
                   {isDeviceExpanded && (
-                    <div className="mt-4 pt-4 border-top grid grid-cols-2 gap-md text-sm w-full">
-                      <div className="w-full">
-                        <span className="text-muted block mb-1">Senha:</span>
-                        <span className="font-medium text-lg">{editingOS.devicePassword || 'Não informada'}</span>
+                    <>
+                      <div className="inner-divider" />
+                      <div className="device-more">
+                        <div className="field">
+                          <span className="field-label">Número de Série</span>
+                          <span className="field-value">{deviceSerial(editingOS) || '—'}</span>
+                        </div>
+                        <div className="field">
+                          <span className="field-label">Acessórios</span>
+                          <span className="field-value">{editingOS.accessories || 'Nenhum'}</span>
+                        </div>
+                        <div className="field">
+                          <span className="field-label">Data de entrada</span>
+                          <span className="field-value">{formatDate(editingOS.entryDate)}</span>
+                        </div>
                       </div>
-                      <div className="w-full">
-                        <span className="text-muted block mb-1">Acessórios:</span>
-                        <span className="font-medium text-lg">{editingOS.accessories || 'Nenhum'}</span>
-                      </div>
-                      <div className="col-span-2 mt-2 w-full">
-                        <span className="text-muted block mb-1">Defeito Relatado:</span>
-                        <p className="bg-background p-3 rounded border border-color mt-1 text-md">{editingOS.defect || 'Não informado'}</p>
-                      </div>
-                    </div>
+                    </>
                   )}
                 </div>
               </div>
+            </section>
 
-              {/* Services List */}
-              <div className="edit-section">
-                <div className="flex justify-between items-center mb-4">
-                  <h4 className="section-title mb-0"><List size={18} /> LISTA DE SERVIÇOS EXECUTADOS</h4>
-                  <button className="btn btn-primary btn-sm" onClick={() => setShowServiceModal(true)}>
-                    <Plus size={16} className="mr-1" /> Adicionar Serviço
-                  </button>
-                </div>
-                <div className="services-table-container">
-                  <table className="os-table">
-                    <thead>
-                      <tr>
-                        <th>DESCRIÇÃO DO SERVIÇO</th>
-                        <th className="text-right">VALOR</th>
-                        <th className="text-right">AÇÕES</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {serviceItems.map(item => (
-                        <tr key={item.id}>
-                          <td>{item.description}</td>
-                          <td className="text-right font-bold">{formatCurrency(item.price)}</td>
-                          <td className="text-right">
-                            <button className="btn-icon text-danger" onClick={() => removeServiceItem(item.id)}>
-                              <Trash2 size={18} />
+            {/* ── 3. Serviços executados ── */}
+            <section className={`os-panel ${!isServicesExpanded ? 'os-panel-collapsed' : ''}`}>
+              <header className="os-panel-head">
+                <button
+                  type="button"
+                  className="os-panel-title os-panel-title-toggle"
+                  onClick={() => setIsServicesExpanded(v => !v)}
+                  aria-expanded={isServicesExpanded}
+                  title={isServicesExpanded ? 'Recolher' : 'Expandir'}
+                >
+                  <ChevronRight size={15} className={`caret ${isServicesExpanded ? 'is-open' : ''}`} />
+                  <Wrench size={17} /> Serviços Executados
+                  {!isServicesExpanded && serviceItems.length > 0 && (
+                    <span className="svc-count-badge">{serviceItems.length}</span>
+                  )}
+                </button>
+                <button className="btn btn-primary btn-sm" onClick={openNewService}>
+                  <Plus size={16} /> Adicionar Serviço
+                </button>
+              </header>
+
+              {isServicesExpanded && (
+              <div className="os-panel-body">
+                <table className="svc-table">
+                  <thead>
+                    <tr>
+                      <th>Descrição do Serviço</th>
+                      <th className="svc-col-value">Valor</th>
+                      <th className="svc-col-actions">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {serviceItems.map(item => (
+                      <tr key={item.id}>
+                        <td>{item.description}</td>
+                        <td className="svc-col-value">{formatCurrency(item.price)}</td>
+                        <td className="svc-col-actions">
+                          <div className="svc-actions">
+                            <button className="icon-outline" onClick={() => openEditService(item)} title="Editar serviço">
+                              <Pencil size={15} />
                             </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {serviceItems.length === 0 && (
-                        <tr>
-                          <td colSpan="3" className="text-center text-muted py-4">Nenhum serviço registrado.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td className="font-bold">TOTAL DOS SERVIÇOS</td>
-                        <td className="text-right font-bold text-primary text-lg">{formatCurrency(totalServices)}</td>
-                        <td></td>
+                            <button className="icon-outline icon-outline-danger" onClick={() => removeServiceItem(item.id)} title="Remover serviço">
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
-                    </tfoot>
-                  </table>
-                </div>
+                    ))}
+                    {serviceItems.length === 0 && (
+                      <tr>
+                        <td colSpan="3" className="svc-empty">Nenhum serviço lançado</td>
+                      </tr>
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td>TOTAL DOS SERVIÇOS</td>
+                      <td className="svc-col-value svc-total">{formatCurrency(totalServices)}</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
-            </div>
+              )}
+            </section>
           </div>
         )}
 
@@ -881,39 +952,34 @@ const OS = () => {
           </div>
         </div>
       </div>
-      {/* Service Modal */}
       {showServiceModal && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && setShowServiceModal(false)}>
           <div className="modal-content card">
-            <h3 className="mb-4">Adicionar Novo Serviço/Peça</h3>
+            <h3 className="mb-4">{editingServiceId ? 'Editar Serviço' : 'Adicionar Serviço'}</h3>
             <div className="form-group mb-4">
               <label>Descrição</label>
-              <input 
+              <input
                 type="text" className="input" autoFocus
                 value={newItem.description}
-                onChange={e => setNewItem({...newItem, description: e.target.value})}
-                placeholder="Ex: Troca de Tela"
+                onChange={e => setNewItem({ ...newItem, description: e.target.value })}
+                onKeyDown={e => e.key === 'Enter' && submitService()}
+                placeholder="Ex: Troca de tela"
               />
             </div>
             <div className="form-group mb-6">
               <label>Valor (R$)</label>
-              <input 
-                type="number" className="input"
+              <input
+                type="number" step="0.01" min="0" className="input"
                 value={newItem.price}
-                onChange={e => setNewItem({...newItem, price: e.target.value})}
+                onChange={e => setNewItem({ ...newItem, price: e.target.value })}
+                onKeyDown={e => e.key === 'Enter' && submitService()}
                 placeholder="0,00"
               />
             </div>
             <div className="flex gap-sm justify-end">
               <button className="btn btn-surface" onClick={() => setShowServiceModal(false)}>Cancelar</button>
-              <button 
-                className="btn btn-primary" 
-                onClick={() => {
-                  addServiceItem();
-                  setShowServiceModal(false);
-                }}
-              >
-                Adicionar
+              <button className="btn btn-primary" onClick={submitService}>
+                {editingServiceId ? 'Salvar' : 'Adicionar'}
               </button>
             </div>
           </div>

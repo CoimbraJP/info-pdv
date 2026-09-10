@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Trash2, CreditCard, Tag, X, ShoppingCart, Pencil } from 'lucide-react';
+import { Search, Plus, Trash2, CreditCard, X, ShoppingCart, Pencil } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { useGlobalState } from '../context/GlobalState';
 import './PDV.css';
@@ -126,6 +126,14 @@ const PDV = () => {
 
   const removeFromCart = (id) => setCart(prev => prev.filter(item => item.id !== id));
 
+  /** Cancelar limpa o carrinho — confirma quando há vários itens digitados. */
+  const handleCancelSale = () => {
+    if (cart.length === 0) return;
+    if (cart.length > 1 && !window.confirm(`Cancelar a venda e remover ${cart.length} itens do carrinho?`)) return;
+    setCart([]);
+    barcodeInputRef.current?.focus();
+  };
+
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const discount = 0;
   const total = subtotal - discount;
@@ -163,7 +171,7 @@ const PDV = () => {
       }
       if (e.key === 'F4' && cart.length > 0 && !isCheckoutOpen && !isModalOpen) {
         e.preventDefault();
-        setCart([]);
+        handleCancelSale();
       }
       if (e.key === 'Escape') {
         setIsCheckoutOpen(false);
@@ -173,6 +181,7 @@ const PDV = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleCancelSale é recriado a cada render; as deps abaixo bastam
   }, [cart, isCheckoutOpen, isModalOpen]);
 
   return (
@@ -181,16 +190,18 @@ const PDV = () => {
         {/* ── Left: Cart ── */}
         <div className="cart-section card">
           <div className="cart-header">
-            <h2>Lista de Itens</h2>
-            <span className="item-count">{cart.reduce((a, c) => a + c.quantity, 0)} itens</span>
+            <h2 className="panel-title"><ShoppingCart size={17} /> Lista de Itens</h2>
+            <span className="item-count">
+              {cart.reduce((a, c) => a + c.quantity, 0)} {cart.reduce((a, c) => a + c.quantity, 0) === 1 ? 'item' : 'itens'}
+            </span>
           </div>
 
           <div className="cart-items">
             {cart.length === 0 ? (
               <div className="empty-cart">
-                <ShoppingCart size={44} />
-                <p>Nenhum item adicionado</p>
-                <p>Digite o código ou nome do produto abaixo</p>
+                <ShoppingCart size={38} className="text-dim" />
+                <p className="empty-state-title">Nenhum item adicionado</p>
+                <p className="empty-state-sub">Digite o código ou o nome do produto abaixo</p>
               </div>
             ) : (
               <table className="cart-table">
@@ -212,11 +223,11 @@ const PDV = () => {
                       <td className="text-right font-bold">{formatCurrency(item.price * item.quantity)}</td>
                       <td className="text-right">
                         <div className="flex gap-1 justify-end">
-                          <button className="btn-icon text-info" onClick={() => handleEditItem(item)} title="Editar">
-                            <Pencil size={16} />
+                          <button className="icon-outline" onClick={() => handleEditItem(item)} title="Editar item">
+                            <Pencil size={15} />
                           </button>
-                          <button className="btn-icon text-danger" onClick={() => removeFromCart(item.id)} title="Remover">
-                            <Trash2 size={16} />
+                          <button className="icon-outline icon-outline-danger" onClick={() => removeFromCart(item.id)} title="Remover item">
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </td>
@@ -296,18 +307,12 @@ const PDV = () => {
               <span className="shortcut">[F2]</span>
             </button>
 
-            <button className="btn action-btn btn-surface" disabled={cart.length === 0}>
-              <Tag size={22} />
-              <span>Aplicar Desconto</span>
-              <span className="shortcut">[F3]</span>
-            </button>
-
             <button
-              className="btn action-btn btn-danger"
-              onClick={() => setCart([])}
+              className="btn-outline action-btn"
+              onClick={handleCancelSale}
               disabled={cart.length === 0}
             >
-              <X size={22} />
+              <X size={20} />
               <span>Cancelar Venda</span>
               <span className="shortcut">[F4]</span>
             </button>
@@ -317,7 +322,7 @@ const PDV = () => {
 
       {/* ── Avulso Modal ── */}
       {isModalOpen && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && setIsModalOpen(false)}>
           <div className="modal-content card">
             <div className="flex justify-between items-center border-bottom pb-4 mb-6">
               <h3 className="text-xl font-bold">{editingId ? 'Editar Item' : 'Item Avulso'}</h3>
@@ -366,7 +371,7 @@ const PDV = () => {
 
       {/* ── Checkout Modal ── */}
       {isCheckoutOpen && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && setIsCheckoutOpen(false)}>
           <div className="modal-content card checkout-modal">
             <div className="flex justify-between items-center border-bottom pb-4 mb-6">
               <h3 className="text-xl font-bold">Finalizar Venda</h3>
@@ -449,9 +454,9 @@ const PDV = () => {
       {/* ── Print Receipt (screen-hidden) ── */}
       <div className={`print-only template-${settings?.osPrintTemplate || 'thermal-1'}`}>
         <div className="print-header">
-          <span className="print-logo">INFO CENTRO</span>
-          <p>SJC — São Paulo</p>
-          <p>Tel: (12) 99999-9999</p>
+          <span className="print-logo">{settings?.storeName || 'INFO CENTRO'}</span>
+          <p>{settings?.storeAddress || 'SJC — São Paulo'}</p>
+          <p>Tel: {settings?.storePhone || '(12) 99999-9999'}</p>
           <p>{new Date().toLocaleString('pt-BR')}</p>
         </div>
         <div className="print-section text-center">

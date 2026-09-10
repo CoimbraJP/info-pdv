@@ -31,6 +31,8 @@ const defaultProducts = [
 
 const defaultOS = []; // sem OS de exemplo — dados de teste entram via importação de backup
 
+const defaultEtiquetas = []; // etiquetas de notebooks — carregam via importação JSON
+
 const defaultSettings = {
   osPrintTemplate: 'thermal-1',
   storeName: 'Info Centro',
@@ -42,6 +44,7 @@ export const GlobalProvider = ({ children }) => {
   const [products, setProductsState] = useState([]);
   const [osList, setOsListState] = useState([]);
   const [sales, setSalesState] = useState([]);
+  const [etiquetas, setEtiquetasState] = useState([]);
   const [settings, setSettingsState] = useState(defaultSettings);
 
   const [syncStatus, setSyncStatus] = useState(isOnline() ? 'idle' : 'offline');
@@ -51,6 +54,7 @@ export const GlobalProvider = ({ children }) => {
   const productsRef = useRef([]);
   const osRef = useRef([]);
   const salesRef = useRef([]);
+  const etiquetasRef = useRef([]);
   const settingsRef = useRef(defaultSettings);
   const tombsRef = useRef([]);
   const metaRef = useRef({ lastSyncAt: 0 });
@@ -87,6 +91,14 @@ export const GlobalProvider = ({ children }) => {
   const setProducts = (updater) => writeCollection(KEYS.products, STORE.products, productsRef, setProductsState, updater);
   const setOsList = (updater) => writeCollection(KEYS.os, STORE.os, osRef, setOsListState, updater);
   const setSales = (updater) => writeCollection(KEYS.sales, STORE.sales, salesRef, setSalesState, updater);
+  const setEtiquetas = (updater) => {
+    const prev = etiquetasRef.current;
+    const next = typeof updater === 'function' ? updater(prev) : updater;
+    etiquetasRef.current = next;
+    setEtiquetasState(next);
+    dbSet('etiquetas', next);
+    scheduleSync();
+  };
 
   const setSettings = (updater) => {
     const prev = settingsRef.current;
@@ -203,8 +215,8 @@ export const GlobalProvider = ({ children }) => {
     let mounted = true;
     (async () => {
       await migrateFromLocalStorage();
-      const [p, o, s, st, tomb, meta] = await Promise.all([
-        dbGet(KEYS.products), dbGet(KEYS.os), dbGet(KEYS.sales),
+      const [p, o, s, e, st, tomb, meta] = await Promise.all([
+        dbGet(KEYS.products), dbGet(KEYS.os), dbGet(KEYS.sales), dbGet('etiquetas', []),
         dbGet(KEYS.settings), dbGet(KEYS.tombstones, []), dbGet(KEYS.meta, { lastSyncAt: 0 }),
       ]);
       if (!mounted) return;
@@ -224,6 +236,14 @@ export const GlobalProvider = ({ children }) => {
       initCollection(KEYS.products, productsRef, setProductsState, p, defaultProducts);
       initCollection(KEYS.os, osRef, setOsListState, o, defaultOS);
       initCollection(KEYS.sales, salesRef, setSalesState, s, []);
+      if (e == null) {
+        etiquetasRef.current = defaultEtiquetas;
+        setEtiquetasState(defaultEtiquetas);
+        dbSet('etiquetas', defaultEtiquetas);
+      } else {
+        etiquetasRef.current = e;
+        setEtiquetasState(e);
+      }
 
       const initSettings = st == null ? { ...defaultSettings, id: 'singleton', updatedAt: Date.now() } : st;
       settingsRef.current = initSettings;
@@ -279,6 +299,7 @@ export const GlobalProvider = ({ children }) => {
     <GlobalStateContext.Provider value={{
       products, setProducts,
       osList, setOsList, addOS, updateOS, deleteOS,
+      etiquetas, setEtiquetas,
       settings, setSettings,
       sales, setSales,
       addSale,
