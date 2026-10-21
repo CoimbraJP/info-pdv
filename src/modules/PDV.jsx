@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Trash2, CreditCard, X, ShoppingCart, Pencil, Banknote, Check, ArrowLeft } from 'lucide-react';
+import { Search, Plus, Trash2, CreditCard, X, ShoppingCart, Pencil, Banknote, ArrowLeft } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { useGlobalState } from '../context/GlobalState';
 import './PDV.css';
@@ -60,14 +60,13 @@ const PDV = () => {
   const [paymentMethod, setPaymentMethod] = useState('cartao');
   const [amountReceived, setAmountReceived] = useState('');
   const [finalPriceInput, setFinalPriceInput] = useState(''); // valor final combinado com o cliente
-  // Passos: 'pagamento' → 'valor' → ('desconto' se baixou o valor) → ('recebido' se dinheiro)
+  // Passos: 'pagamento' → 'valor' (Enter finaliza; digitar menos = desconto) → 'recebido' (só dinheiro)
   const [checkoutStep, setCheckoutStep] = useState('pagamento');
 
   const barcodeInputRef = useRef(null);
   const suggestionsRef = useRef(null);
   const checkoutRef = useRef(null);
   const finalInputRef = useRef(null);
-  const yesBtnRef = useRef(null);
   const amountInputRef = useRef(null);
   const submittingRef = useRef(false); // evita venda duplicada com Enter repetido
   const { products, addSale, settings } = useGlobalState();
@@ -243,21 +242,20 @@ const PDV = () => {
 
   /** Esc volta um passo; no primeiro passo fecha. */
   const stepBack = () => {
-    if (checkoutStep === 'recebido' || checkoutStep === 'desconto') setCheckoutStep('valor');
+    if (checkoutStep === 'recebido') setCheckoutStep('valor');
     else if (checkoutStep === 'valor') setCheckoutStep('pagamento');
     else closeCheckout();
   };
 
-  /** Depois do valor (e do desconto confirmado): dinheiro pede o recebido; cartão finaliza. */
-  const afterValue = () => {
-    if (paymentMethod === 'dinheiro') setCheckoutStep('recebido');
-    else finalizeSale();
-  };
-
+  /**
+   * Enter no valor: sem confirmação extra. Cartão/PIX finaliza e imprime na
+   * hora (com o desconto no cupom, se o valor foi baixado); dinheiro só pede
+   * o valor recebido para o troco.
+   */
   const confirmValue = () => {
     if (priceError) return;
-    if (discount > 0) setCheckoutStep('desconto');
-    else afterValue();
+    if (paymentMethod === 'dinheiro') setCheckoutStep('recebido');
+    else finalizeSale();
   };
 
   const finalizeSale = () => {
@@ -292,7 +290,6 @@ const PDV = () => {
       if (isCheckoutOpen) {
         if (checkoutStep === 'pagamento') checkoutRef.current?.focus();
         if (checkoutStep === 'valor') { finalInputRef.current?.focus(); finalInputRef.current?.select(); }
-        if (checkoutStep === 'desconto') yesBtnRef.current?.focus();
         if (checkoutStep === 'recebido') amountInputRef.current?.focus();
       } else if (!isModalOpen) {
         barcodeInputRef.current?.focus();
@@ -306,9 +303,8 @@ const PDV = () => {
    *  Busca     ↑/↓ escolhe · Enter adiciona · 3*código = quantidade
    *  Venda     F2 finalizar · F4 cancelar · Esc fecha
    *  Checkout  1) C = Cartão/PIX · D = Dinheiro (ou ←/→) · Enter
-   *            2) valor da venda (digite menos para dar desconto) · Enter
-   *            3) desconto? S/Enter = sim · N = não
-   *            4) dinheiro: valor recebido (vazio = exato) · Enter
+   *            2) valor da venda (digite menos para dar desconto) · Enter finaliza
+   *            3) só dinheiro: valor recebido (vazio = exato) · Enter
    *            Esc volta um passo
    */
   const handleKeyDown = (e) => {
@@ -328,11 +324,6 @@ const PDV = () => {
         return;
       }
       if (checkoutStep === 'valor' && e.key === 'Enter') { e.preventDefault(); confirmValue(); return; }
-      if (checkoutStep === 'desconto') {
-        if (e.key === 'Enter' || k === 's') { e.preventDefault(); afterValue(); return; }
-        if (k === 'n') { e.preventDefault(); setCheckoutStep('valor'); }
-        return;
-      }
       if (checkoutStep === 'recebido' && e.key === 'Enter') { e.preventDefault(); finalizeSale(); }
       return; // demais teclas: digitação normal nos campos
     }
@@ -622,22 +613,12 @@ const PDV = () => {
                 {priceError
                   ? <p className="text-danger text-sm mt-2">{priceError}</p>
                   : discount > 0
-                    ? <p className="discount-notice">Desconto de <strong>{formatCurrency(discount)}</strong></p>
+                    ? <p className="discount-notice">Desconto de <strong>{formatCurrency(discount)}</strong> — sai no cupom. Enter finaliza por {formatCurrency(total)}.</p>
                     : <p className="text-dim text-sm mt-2">Para dar desconto, digite o valor combinado (ex.: {Math.floor(subtotal * 0.95)}).</p>}
               </div>
             )}
 
-            {/* Passo 3 — confirmar desconto */}
-            {checkoutStep === 'desconto' && (
-              <div className="discount-confirm">
-                <p className="discount-confirm-title">Desconto de {formatCurrency(discount)}</p>
-                <p className="text-muted">
-                  Finalizar a venda por <strong className="text-main">{formatCurrency(total)}</strong> em vez de {formatCurrency(subtotal)}?
-                </p>
-              </div>
-            )}
-
-            {/* Passo 4 — dinheiro: valor recebido */}
+            {/* Passo 3 — dinheiro: valor recebido */}
             {checkoutStep === 'recebido' && (
               <div className="form-group">
                 <label htmlFor="pdv-received" className="checkout-step-label">Valor recebido (R$)</label>
@@ -667,7 +648,6 @@ const PDV = () => {
             <div className="flex gap-2 justify-end items-center mt-6">
               <span className="checkout-hint">
                 {checkoutStep === 'pagamento' && <><kbd className="kbd">C</kbd>/<kbd className="kbd">D</kbd> escolhe · </>}
-                {checkoutStep === 'desconto' && <><kbd className="kbd">S</kbd> sim · <kbd className="kbd">N</kbd> não · </>}
                 <kbd className="kbd">Esc</kbd> {checkoutStep === 'pagamento' ? 'fechar' : 'voltar'}
               </span>
               <button type="button" className="btn btn-surface" onClick={stepBack}>
@@ -681,13 +661,7 @@ const PDV = () => {
               )}
               {checkoutStep === 'valor' && (
                 <button type="button" className="btn btn-primary" onClick={confirmValue} disabled={!!priceError}>
-                  {discount > 0 ? 'Aplicar desconto' : (paymentMethod === 'dinheiro' ? 'Continuar' : 'Finalizar e imprimir')}
-                  <kbd className="kbd kbd-on-primary">Enter</kbd>
-                </button>
-              )}
-              {checkoutStep === 'desconto' && (
-                <button type="button" className="btn btn-primary" onClick={afterValue} ref={yesBtnRef}>
-                  <Check size={18} /> Sim, {paymentMethod === 'dinheiro' ? 'continuar' : 'finalizar'}
+                  {paymentMethod === 'dinheiro' ? 'Continuar' : 'Finalizar e imprimir'}
                   <kbd className="kbd kbd-on-primary">Enter</kbd>
                 </button>
               )}
