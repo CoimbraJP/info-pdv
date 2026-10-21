@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Trash2, CreditCard, X, ShoppingCart, Pencil } from 'lucide-react';
+import { Search, Plus, Trash2, CreditCard, X, ShoppingCart, Pencil, Percent } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { useGlobalState } from '../context/GlobalState';
 import './PDV.css';
@@ -13,6 +13,22 @@ const parseQuery = (raw) => {
   return m
     ? { qty: Math.max(1, parseInt(m[1], 10)), term: m[2].trim() }
     : { qty: 1, term: String(raw || '').trim() };
+};
+
+/**
+ * Desconto digitado em um campo só: "10%" = percentual; "15", "15,50" ou
+ * "R$ 15,50" = valor em reais. Retorna o valor em R$ (2 casas) ou erro.
+ */
+const parseDiscount = (raw, subtotal) => {
+  const s = String(raw || '').trim();
+  if (!s) return { value: 0, error: '' };
+  const isPct = s.endsWith('%');
+  const num = parseFloat(s.replace(/[R$\s%]/g, '').replace(/\./g, '').replace(',', '.'));
+  if (!Number.isFinite(num) || num < 0) return { value: 0, error: 'Desconto inválido' };
+  if (isPct && num > 100) return { value: 0, error: 'Máximo 100%' };
+  const value = Math.round((isPct ? (subtotal * num) / 100 : num) * 100) / 100;
+  if (value > subtotal) return { value: 0, error: 'Desconto maior que o subtotal' };
+  return { value, error: '', pct: isPct ? num : null };
 };
 
 const isTypingField = (el) =>
@@ -32,11 +48,14 @@ const PDV = () => {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cartao');
   const [amountReceived, setAmountReceived] = useState('');
+  const [discountInput, setDiscountInput] = useState(''); // "10%" ou "15,00"
 
   const barcodeInputRef = useRef(null);
   const suggestionsRef = useRef(null);
   const confirmBtnRef = useRef(null);
   const amountInputRef = useRef(null);
+  const discountInputRef = useRef(null);
+  const focusDiscountRef = useRef(false); // F3 abre o checkout já no campo de desconto
   const submittingRef = useRef(false); // evita venda duplicada com Enter repetido
   const { products, addSale, settings } = useGlobalState();
 
@@ -183,17 +202,19 @@ const PDV = () => {
     if (cart.length === 0) return;
     if (cart.length > 1 && !window.confirm(`Cancelar a venda e remover ${cart.length} itens do carrinho?`)) return;
     setCart([]);
+    setDiscountInput('');
     barcodeInputRef.current?.focus();
   };
 
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const discount = 0;
-  const total = subtotal - discount;
+  const { value: discount, error: discountError, pct: discountPct } = parseDiscount(discountInput, subtotal);
+  const total = Math.max(0, Math.round((subtotal - discount) * 100) / 100);
   const change = paymentMethod === 'dinheiro' ? Math.max(0, parseFloat(amountReceived || 0) - total) : 0;
-  const canConfirm = paymentMethod !== 'dinheiro' || parseFloat(amountReceived || 0) >= total;
+  const canConfirm = !discountError && (paymentMethod !== 'dinheiro' || parseFloat(amountReceived || 0) >= total);
 
-  const openCheckout = () => {
+  const openCheckout = ({ focusDiscount = false } = {}) => {
     if (cart.length === 0) return;
+    focusDiscountRef.current = focusDiscount;
     setPaymentMethod('cartao');
     setAmountReceived('');
     setShowSuggestions(false);
@@ -211,7 +232,11 @@ const PDV = () => {
   useEffect(() => {
     const t = setTimeout(() => {
       if (isCheckoutOpen) {
-        if (paymentMethod === 'dinheiro') amountInputRef.current?.focus();
+        if (focusDiscountRef.current) {
+          focusDiscountRef.current = false;
+          discountInputRef.current?.focus();
+          discountInputRef.current?.select();
+        } else if (paymentMethod === 'dinheiro') amountInputRef.current?.focus();
         else confirmBtnRef.current?.focus();
       } else if (!isModalOpen) {
         barcodeInputRef.current?.focus();
@@ -227,6 +252,8 @@ const PDV = () => {
 
     addSale({
       items: cart,
+      subtotal,
+      discount,
       total,
       paymentMethod,
       amountReceived: paymentMethod === 'dinheiro' ? parseFloat(amountReceived) : total
@@ -239,6 +266,7 @@ const PDV = () => {
       setIsCheckoutOpen(false);
       setPaymentMethod('cartao');
       setAmountReceived('');
+      setDiscountInput('');
       submittingRef.current = false;
       setTimeout(() => barcodeInputRef.current?.focus(), 150);
     }, 150);
@@ -247,7 +275,7 @@ const PDV = () => {
   /*
    * Atalhos de teclado:
    *  Busca    ↑/↓ escolhe · Enter adiciona · 3*código = quantidade
-   *  F2       finalizar venda · F4 cancelar venda · Esc fecha
+   *  F2       finalizar venda · F3 desconto · F4 cancelar venda · Esc fecha
    *  Checkout C ou 1 = Cartão/PIX · D ou 2 = Dinheiro · ←/→ alterna
    *           Enter confirma e imprime
    */
@@ -268,6 +296,12 @@ const PDV = () => {
         handleCheckoutSubmit();
         return;
       }
+    }
+    if (e.key === 'F3' && cart.length > 0 && !isModalOpen) {
+      e.preventDefault();
+      if (isCheckoutOpen) { discountInputRef.current?.focus(); discountInputRef.current?.select(); }
+      else openCheckout({ focusDiscount: true });
+      return;
     }
     if (e.key === 'F2' && cart.length > 0 && !isCheckoutOpen && !isModalOpen) {
       e.preventDefault();
@@ -403,9 +437,9 @@ const PDV = () => {
               <span>Subtotal</span>
               <span>{formatCurrency(subtotal)}</span>
             </div>
-            <div className="totals-row">
-              <span>Desconto</span>
-              <span>{formatCurrency(discount)}</span>
+            <div className={`totals-row ${discount > 0 ? 'text-success' : ''}`}>
+              <span>Desconto{discountPct ? ` (${discountPct}%)` : ''}</span>
+              <span>{discount > 0 ? `− ${formatCurrency(discount)}` : formatCurrency(0)}</span>
             </div>
             <div className="divider"></div>
             <div className="total-row">
@@ -423,6 +457,16 @@ const PDV = () => {
               <CreditCard size={22} />
               <span>Finalizar Venda</span>
               <span className="shortcut">[F2]</span>
+            </button>
+
+            <button
+              className="btn-outline action-btn"
+              onClick={() => openCheckout({ focusDiscount: true })}
+              disabled={cart.length === 0}
+            >
+              <Percent size={20} />
+              <span>Desconto</span>
+              <span className="shortcut">[F3]</span>
             </button>
 
             <button
@@ -499,12 +543,47 @@ const PDV = () => {
             </div>
 
             {/* Total destaque */}
-            <div className="flex justify-between items-center bg-surface-hover p-4 rounded mb-6" style={{ borderRadius: 'var(--radius-lg)' }}>
-              <span className="text-muted font-medium text-sm uppercase tracking-wide">Total da Venda</span>
-              <span className="total-value" style={{ fontSize: '1.75rem' }}>{formatCurrency(total)}</span>
+            <div className="checkout-total-box mb-5">
+              {discount > 0 && (
+                <div className="checkout-sub">
+                  <span>Subtotal {formatCurrency(subtotal)}</span>
+                  <span className="text-success">Desconto − {formatCurrency(discount)}{discountPct ? ` (${discountPct}%)` : ''}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center">
+                <span className="text-muted font-medium text-sm uppercase tracking-wide">Total da Venda</span>
+                <span className="total-value" style={{ fontSize: '1.75rem' }}>{formatCurrency(total)}</span>
+              </div>
             </div>
 
             <form onSubmit={handleCheckoutSubmit}>
+              <div className="form-group mb-5">
+                <label htmlFor="pdv-discount">
+                  Desconto <span className="text-dim">(R$ ou %)</span> <kbd className="kbd">F3</kbd>
+                </label>
+                <input
+                  id="pdv-discount"
+                  ref={discountInputRef}
+                  type="text"
+                  inputMode="decimal"
+                  className={`input ${discountError ? 'input-error' : ''}`}
+                  placeholder="Ex.: 10% ou 15,00"
+                  value={discountInput}
+                  onChange={e => setDiscountInput(e.target.value)}
+                  onKeyDown={e => {
+                    // Enter no desconto não finaliza: passa para o próximo passo
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (discountError) return;
+                      if (paymentMethod === 'dinheiro') amountInputRef.current?.focus();
+                      else confirmBtnRef.current?.focus();
+                    }
+                  }}
+                  autoComplete="off"
+                />
+                {discountError && <p className="text-danger text-sm mt-2">{discountError}</p>}
+              </div>
+
               <div className="form-group mb-6">
                 <label>Forma de Pagamento</label>
                 <div className="payment-toggle mt-2">
@@ -604,6 +683,18 @@ const PDV = () => {
           ))}
         </div>
         <div className="print-section" style={{ marginTop: '2mm' }}>
+          {discount > 0 && (
+            <>
+              <div className="print-row">
+                <span>Subtotal</span>
+                <span>{formatCurrency(subtotal)}</span>
+              </div>
+              <div className="print-row">
+                <span>Desconto{discountPct ? ` (${discountPct}%)` : ''}</span>
+                <span>- {formatCurrency(discount)}</span>
+              </div>
+            </>
+          )}
           <div className="print-row" style={{ fontSize: '11pt', fontWeight: 'bold' }}>
             <span>TOTAL</span>
             <span>{formatCurrency(total)}</span>

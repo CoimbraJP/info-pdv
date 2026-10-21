@@ -136,6 +136,7 @@ const Dashboard = () => {
 
     const productProfit = salesInPeriod.reduce((acc, s) => (
       acc + (s.items || []).reduce((a, it) => a + ((it.price || 0) - (it.cost || 0)) * (it.quantity || 0), 0)
+        - (s.discount || 0) // desconto da venda sai do lucro
     ), 0);
 
     const serviceRevenue = osInPeriod

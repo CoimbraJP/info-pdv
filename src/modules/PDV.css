@@ -391,3 +391,17 @@
 .payment-btn { position: relative; }
 .payment-btn .kbd { position: absolute; top: 6px; right: 8px; }
 .checkout-hint { margin-right: auto; font-size: 0.75rem; color: var(--text-dim); }
+
+/* ── Desconto no checkout ── */
+.checkout-total-box {
+  padding: var(--s-4);
+  background: var(--surface-hover);
+  border-radius: var(--radius-lg);
+}
+.checkout-sub {
+  display: flex; justify-content: space-between; gap: var(--s-3);
+  font-size: 0.82rem; color: var(--text-muted);
+  padding-bottom: var(--s-2); margin-bottom: var(--s-2);
+  border-bottom: 1px dashed var(--border-strong);
+}
+.input.input-error { border-color: var(--status-danger); }

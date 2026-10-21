@@ -234,6 +234,11 @@ const Vendas = () => {
                               </table>
 
                               <div className="flex justify-end gap-6 mt-3 pt-3" style={{ borderTop: '1px solid var(--border-color)' }}>
+                                {sale.discount > 0 && (
+                                  <span className="text-success text-sm">
+                                    Desconto: <strong>− {formatCurrency(sale.discount)}</strong>
+                                  </span>
+                                )}
                                 {sale.paymentMethod === 'dinheiro' && sale.amountReceived && (
                                   <>
                                     <span className="text-muted text-sm">
@@ -291,6 +296,18 @@ const Vendas = () => {
           </div>
 
           <div className="print-section" style={{ borderTop: '1px dashed #000', paddingTop: '2mm' }}>
+            {selectedSale.discount > 0 && (
+              <>
+                <div className="print-row">
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(selectedSale.subtotal ?? selectedSale.total + selectedSale.discount)}</span>
+                </div>
+                <div className="print-row">
+                  <span>Desconto</span>
+                  <span>- {formatCurrency(selectedSale.discount)}</span>
+                </div>
+              </>
+            )}
             <div className="print-row" style={{ fontWeight: 'bold', fontSize: '10.5pt' }}>
               <span>TOTAL</span>
               <span>{formatCurrency(selectedSale.total)}</span>
