@@ -8,6 +8,7 @@ import Estoque from './modules/Estoque';
 import Etiquetas from './modules/Etiquetas';
 import Vendas from './modules/Vendas';
 import { GlobalProvider, useGlobalState } from './context/GlobalState';
+import { StoreProvider } from './context/StoreContext';
 import { canAccessModule } from './utils/auth';
 import './App.css';
 import './modules/PrintOS.css';
@@ -47,9 +48,11 @@ function AppShell() {
 
 function App() {
   return (
-    <GlobalProvider>
-      <AppShell />
-    </GlobalProvider>
+    <StoreProvider>
+      <GlobalProvider>
+        <AppShell />
+      </GlobalProvider>
+    </StoreProvider>
   );
 }
 

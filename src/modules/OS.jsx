@@ -3,6 +3,7 @@ import { Plus, Search, Wrench, User, FileText, CheckCircle, Clock, Printer, Layo
 import { formatCurrency, formatDate, parseDate } from '../utils/formatters';
 import { useGlobalState } from '../context/GlobalState';
 import { OS_STATUS, OS_STATUS_WORK, OS_STATUS_META, normalizeStatus } from '../constants/osStatus';
+import { ReceiptHeader, ReceiptSite } from '../components/ReceiptBrand';
 import './OS.css';
 
 const EMPTY_ADDRESS = { cep: '', street: '', number: '', neighborhood: '', city: '', state: '' };
@@ -913,12 +914,7 @@ const OS = () => {
 
       {/* Print Layout */}
       <div className={`print-only template-${settings?.osPrintTemplate || 'thermal-1'}`}>
-        <div className="print-header">
-          <span className="print-logo">INFO CENTRO</span>
-          <p>Assistência Técnica e Vendas</p>
-          <p>SJC - São Paulo</p>
-          <p>Tel: (12) 99999-9999</p>
-        </div>
+        <ReceiptHeader />
 
         <div className="print-section">
           <span className="print-section-title">ORDEM DE SERVIÇO #{editingOS ? editingOS.id : (osList.length > 0 ? osList[osList.length - 1].id : 'NOVA')}</span>
@@ -946,7 +942,7 @@ const OS = () => {
         </div>
 
         <div className="print-footer">
-          <p>Acompanhe seu serviço em: infocentro.com.br</p>
+          <ReceiptSite prefix="Acompanhe seu serviço em: " />
           <div className="print-signature">
             Assinatura do Cliente
           </div>

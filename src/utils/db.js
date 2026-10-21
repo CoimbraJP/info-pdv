@@ -11,11 +11,16 @@
  */
 import localforage from 'localforage';
 
-localforage.config({
-  name: 'infocentro',
-  storeName: 'infocentro_store',
-  description: 'INFO CENTRO — dados locais do PDV',
-});
+/*
+ * Multi-loja: cada loja tem o próprio banco local no navegador. A Info Centro
+ * continua no banco 'infocentro' (o que já existia — nada se perde); as
+ * demais usam um banco com o nome da loja. Trocar de loja = trocar a instância.
+ */
+let lf = localforage.createInstance({ name: 'infocentro', storeName: 'infocentro_store' });
+
+export function setActiveLocalDb(name) {
+  lf = localforage.createInstance({ name, storeName: 'infocentro_store' });
+}
 
 export const KEYS = {
   products: 'infocentro_products',
@@ -36,7 +41,7 @@ export const STORE = {
 
 export async function dbGet(key, fallback = null) {
   try {
-    const value = await localforage.getItem(key);
+    const value = await lf.getItem(key);
     return value == null ? fallback : value;
   } catch (err) {
     console.error('[db] getItem falhou:', key, err);
@@ -46,7 +51,7 @@ export async function dbGet(key, fallback = null) {
 
 export async function dbSet(key, value) {
   try {
-    await localforage.setItem(key, value);
+    await lf.setItem(key, value);
   } catch (err) {
     console.error('[db] setItem falhou:', key, err);
   }
@@ -59,23 +64,23 @@ export async function dbSet(key, value) {
  */
 export async function migrateFromLocalStorage() {
   try {
-    const done = await localforage.getItem('infocentro_migrated_v1');
+    const done = await lf.getItem('infocentro_migrated_v1');
     if (done) return;
 
     for (const key of [KEYS.products, KEYS.os, KEYS.sales, KEYS.settings]) {
-      const existing = await localforage.getItem(key);
+      const existing = await lf.getItem(key);
       if (existing == null && typeof localStorage !== 'undefined') {
         const raw = localStorage.getItem(key);
         if (raw) {
           try {
-            await localforage.setItem(key, JSON.parse(raw));
+            await lf.setItem(key, JSON.parse(raw));
           } catch {
             /* valor inválido — ignora */
           }
         }
       }
     }
-    await localforage.setItem('infocentro_migrated_v1', true);
+    await lf.setItem('infocentro_migrated_v1', true);
   } catch (err) {
     console.error('[db] migração falhou:', err);
   }

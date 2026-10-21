@@ -140,3 +140,16 @@
     margin-bottom: 1mm;
   }
 }
+
+/* Logo da loja no cupom (preto e branco para a térmica) */
+@media print {
+  .print-logo-img {
+    display: block;
+    max-width: 30mm;
+    max-height: 16mm;
+    margin: 0 auto 1mm;
+    object-fit: contain;
+    filter: grayscale(1) contrast(1.2);
+  }
+}
+.print-logo-img { max-width: 120px; max-height: 64px; }

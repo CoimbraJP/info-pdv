@@ -6,6 +6,8 @@ import { pushPull, isOnline } from '../utils/sync';
 import { buildBackupPayload, downloadBackup } from '../utils/backup';
 import { ROLE, hashPassword, MIN_PASSWORD_LENGTH } from '../utils/auth';
 import { applyTheme } from '../utils/theme';
+import { useStore } from './StoreContext';
+import { STORES } from '../constants/stores';
 
 /** Intervalo do backup automático em arquivo (1×/dia na primeira abertura). */
 const AUTO_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -43,6 +45,11 @@ const defaultSettings = {
 };
 
 export const GlobalProvider = ({ children }) => {
+  // Loja ativa: cada loja tem dados, nota e senha ADM próprios
+  const { store, system, updateSystem } = useStore();
+  const storeIdRef = useRef(store.id);
+  const storeRef = useRef(store); // a loja não muda durante a vida do provider (troca = reload)
+
   const [products, setProductsState] = useState([]);
   const [osList, setOsListState] = useState([]);
   const [sales, setSalesState] = useState([]);
@@ -153,13 +160,21 @@ export const GlobalProvider = ({ children }) => {
   /* ── Tema (escuro/claro): segue settings.theme, inclusive vindo do sync ── */
   useEffect(() => { applyTheme(settings?.theme); }, [settings?.theme]);
 
+  useEffect(() => { document.title = `${settings?.storeName || store.name} - Gestão`; }, [settings?.storeName, store.name]);
+
   /* ── Acesso Vendedor × Administrador ── */
   const isAdmin = role === ROLE.ADMIN;
-  const hasAdminPassword = Boolean(settings?.adminPinHash);
+  const adminHash = system.stores[store.id]?.adminPinHash
+    || (store.master ? settings?.adminPinHash : null) // senha criada antes do multi-loja
+    || null;
+  const hasAdminPassword = Boolean(adminHash);
+
+  const saveAdminHash = (storeId, hash) =>
+    updateSystem((sys) => { sys.stores[storeId] = { ...sys.stores[storeId], adminPinHash: hash }; return sys; });
 
   /** Tenta entrar no modo ADM. Retorna true se a senha confere. */
   const unlockAdmin = async (password) => {
-    const stored = settingsRef.current?.adminPinHash;
+    const stored = adminHash;
     if (!stored) return false;
     const ok = (await hashPassword(password)) === stored;
     if (ok) setRole(ROLE.ADMIN);
@@ -171,18 +186,18 @@ export const GlobalProvider = ({ children }) => {
     if ((password || '').length < MIN_PASSWORD_LENGTH) {
       return { ok: false, error: `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` };
     }
-    if (settingsRef.current?.adminPinHash) {
+    if (adminHash) {
       return { ok: false, error: 'Já existe uma senha de administrador.' };
     }
     const hash = await hashPassword(password);
-    setSettings((prev) => ({ ...prev, adminPinHash: hash }));
+    await saveAdminHash(store.id, hash);
     setRole(ROLE.ADMIN);
     return { ok: true };
   };
 
   /** Troca a senha (exige a atual). Só é chamada de dentro do modo ADM. */
   const changeAdminPassword = async (current, next) => {
-    const stored = settingsRef.current?.adminPinHash;
+    const stored = adminHash;
     if (stored && (await hashPassword(current)) !== stored) {
       return { ok: false, error: 'Senha atual incorreta.' };
     }
@@ -190,8 +205,42 @@ export const GlobalProvider = ({ children }) => {
       return { ok: false, error: `A nova senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` };
     }
     const hash = await hashPassword(next);
-    setSettings((prev) => ({ ...prev, adminPinHash: hash }));
+    await saveAdminHash(store.id, hash);
     return { ok: true };
+  };
+
+  /**
+   * Painel master (só Info Centro no modo ADM): troca código de entrada e/ou
+   * senha ADM de qualquer loja, sem pedir a senha atual.
+   */
+  const setStoreCredentials = async (storeId, { code, adminPassword } = {}) => {
+    if (!store.master) return { ok: false, error: 'Somente a loja master altera senhas.' };
+    if (code != null && !/^\d{3,8}$/.test(String(code))) {
+      return { ok: false, error: 'O código deve ter de 3 a 8 números.' };
+    }
+    if (adminPassword != null && String(adminPassword).length < MIN_PASSWORD_LENGTH) {
+      return { ok: false, error: `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` };
+    }
+    const codeHash = code != null ? await hashPassword(String(code)) : undefined;
+    // Código não pode repetir o de outra loja (abriria a loja errada)
+    if (codeHash) {
+      for (const other of STORES) {
+        if (other.id === storeId) continue;
+        const otherHash = system.stores[other.id]?.codeHash || await hashPassword(other.defaultCode);
+        if (otherHash === codeHash) return { ok: false, error: `Esse código já é da ${other.name}.` };
+      }
+    }
+    const adminPinHash = adminPassword != null ? await hashPassword(String(adminPassword)) : undefined;
+    const res = await updateSystem((sys) => {
+      const cur = sys.stores[storeId] || {};
+      sys.stores[storeId] = {
+        ...cur,
+        ...(codeHash ? { codeHash } : {}),
+        ...(adminPinHash ? { adminPinHash } : {}),
+      };
+      return sys;
+    });
+    return { ok: true, synced: res.synced };
   };
 
   /** Volta para o modo Vendedor (não pede senha). */
@@ -223,7 +272,7 @@ export const GlobalProvider = ({ children }) => {
         tombstones: (tombsRef.current || []).filter((t) => (t.deletedAt || 0) > since),
       };
 
-      const resp = await pushPull(payload);
+      const resp = await pushPull(payload, { storeId: storeIdRef.current });
       const serverTime = resp.serverTime || Date.now();
 
       // Agrupa tombstones remotos por coleção
@@ -266,7 +315,8 @@ export const GlobalProvider = ({ children }) => {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      await migrateFromLocalStorage();
+      const store = storeRef.current;
+      if (store.master) await migrateFromLocalStorage(); // dados antigos são da Info Centro
       const [p, o, s, e, st, tomb, meta] = await Promise.all([
         dbGet(KEYS.products), dbGet(KEYS.os), dbGet(KEYS.sales), dbGet('etiquetas', []),
         dbGet(KEYS.settings), dbGet(KEYS.tombstones, []), dbGet(KEYS.meta, { lastSyncAt: 0 }),
@@ -285,7 +335,7 @@ export const GlobalProvider = ({ children }) => {
         }
       };
 
-      initCollection(KEYS.products, productsRef, setProductsState, p, defaultProducts);
+      initCollection(KEYS.products, productsRef, setProductsState, p, store.master ? defaultProducts : []);
       initCollection(KEYS.os, osRef, setOsListState, o, defaultOS);
       initCollection(KEYS.sales, salesRef, setSalesState, s, []);
       if (e == null) {
@@ -297,7 +347,10 @@ export const GlobalProvider = ({ children }) => {
         setEtiquetasState(e);
       }
 
-      const initSettings = st == null ? { ...defaultSettings, id: 'singleton', updatedAt: Date.now() } : st;
+      const storeDefaults = store.master
+        ? defaultSettings
+        : { ...defaultSettings, storeName: store.name, storePhone: '', storeAddress: '' };
+      const initSettings = st == null ? { ...storeDefaults, id: 'singleton', updatedAt: Date.now() } : st;
       settingsRef.current = initSettings;
       setSettingsState(initSettings);
       if (st == null) dbSet(KEYS.settings, initSettings);
@@ -322,6 +375,7 @@ export const GlobalProvider = ({ children }) => {
             osList: osRef.current,
             sales: salesRef.current,
             settings: settingsRef.current,
+            storeId: store.id,
           }), { auto: true });
         } catch (err) {
           console.warn('[backup] backup automático falhou:', err);
@@ -358,6 +412,8 @@ export const GlobalProvider = ({ children }) => {
       // acesso
       role, isAdmin, hasAdminPassword,
       unlockAdmin, createAdminPassword, changeAdminPassword, lockAdmin,
+      // loja
+      store, system, setStoreCredentials,
       // sincronização (uso opcional pela UI)
       syncStatus, lastSyncAt, syncNow: runSync,
     }}>

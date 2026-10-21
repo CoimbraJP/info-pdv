@@ -24,11 +24,12 @@ const SYNC_TOKEN = import.meta.env?.VITE_SYNC_TOKEN || '';
  * @param {object} payload { lastSyncAt, products, sales, serviceOrders, settings, tombstones }
  * @returns {Promise<object>} { serverTime, products, sales, serviceOrders, settings, tombstones }
  */
-export async function pushPull(payload, { signal } = {}) {
+export async function pushPull(payload, { signal, storeId = 'infocentro' } = {}) {
   const res = await fetch(SYNC_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-Store': storeId, // cada loja sincroniza com o próprio banco
       ...(SYNC_TOKEN ? { Authorization: `Bearer ${SYNC_TOKEN}` } : {}),
     },
     body: JSON.stringify(payload),

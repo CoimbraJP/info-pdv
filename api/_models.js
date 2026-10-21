@@ -1,10 +1,13 @@
 /**
- * Models Mongoose para o INFO CENTRO.
+ * Models Mongoose para o PDV (multi-loja).
  *
  * Cada documento guarda o registro completo do app em `data` (Mixed), além de
- * `id` (id gerado no cliente, usado como chave de sincronização), `updatedAt`
- * (epoch ms, para last-write-wins) e `deleted` (tombstone). Essa abordagem
- * mantém o servidor robusto a mudanças na forma dos dados do front.
+ * `id` (id gerado no cliente, chave de sincronização), `updatedAt` (epoch ms,
+ * last-write-wins) e `deleted` (tombstone).
+ *
+ * Multi-loja: cada loja tem um BANCO próprio no mesmo cluster (ex.: infopdv,
+ * eaglegames). `modelsFor(dbName)` devolve os models ligados ao banco certo,
+ * reaproveitando a mesma conexão (useDb com cache).
  */
 import mongoose from 'mongoose';
 
@@ -19,18 +22,37 @@ const makeSchema = () =>
     { minimize: false, versionKey: false }
   );
 
-const model = (name, collection) =>
-  mongoose.models[name] || mongoose.model(name, makeSchema(), collection);
-
-export const Product = model('Product', 'products');
-export const Sale = model('Sale', 'sales');
-export const ServiceOrder = model('ServiceOrder', 'serviceorders');
-export const Settings = model('Settings', 'settings');
-
-/** Mapa coleção lógica -> model, usado pelo endpoint de sync. */
-export const MODELS = {
-  products: Product,
-  sales: Sale,
-  serviceOrders: ServiceOrder,
-  settings: Settings,
+const COLLECTIONS = {
+  Product: 'products',
+  Sale: 'sales',
+  ServiceOrder: 'serviceorders',
+  Settings: 'settings',
+  System: 'system',
 };
+
+const bind = (conn) => {
+  const m = {};
+  for (const [name, collection] of Object.entries(COLLECTIONS)) {
+    m[name] = conn.models[name] || conn.model(name, makeSchema(), collection);
+  }
+  m.MODELS = {
+    products: m.Product,
+    sales: m.Sale,
+    serviceOrders: m.ServiceOrder,
+    settings: m.Settings,
+  };
+  return m;
+};
+
+/** Models ligados a um banco específico (mesma conexão, banco diferente). */
+export const modelsFor = (dbName) =>
+  bind(mongoose.connection.useDb(dbName, { useCache: true }));
+
+/* Models do banco padrão (Info Centro) — usados pelo /api/crm-sync. */
+const base = bind(mongoose);
+export const Product = base.Product;
+export const Sale = base.Sale;
+export const ServiceOrder = base.ServiceOrder;
+export const Settings = base.Settings;
+export const System = base.System;
+export const MODELS = base.MODELS;

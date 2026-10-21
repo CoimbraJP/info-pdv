@@ -3,6 +3,7 @@ import { Receipt, Printer, Calendar, TrendingUp, ChevronRight } from 'lucide-rea
 import { useGlobalState } from '../context/GlobalState';
 import { formatCurrency, formatDateTime, formatDate, parseDate } from '../utils/formatters';
 import { paymentLabel, paymentBadge } from '../constants/payment';
+import { ReceiptHeader, ReceiptSite } from '../components/ReceiptBrand';
 import './OS.css';
 
 
@@ -39,7 +40,7 @@ const PERIOD_OPTIONS = [
 ];
 
 const Vendas = () => {
-  const { sales, settings, isAdmin } = useGlobalState();
+  const { sales, isAdmin } = useGlobalState();
   const [selectedSale, setSelectedSale] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [period, setPeriod] = useState('hoje');
@@ -268,15 +269,12 @@ const Vendas = () => {
       {/* ── Hidden Print Layout ── */}
       {selectedSale && (
         <div className="print-only">
-          <div className="print-header">
-            <span className="print-logo">INFO CENTRO</span>
-            <p>{settings?.storeAddress || 'SJC — São Paulo'}</p>
-            <p>Tel: {settings?.storePhone || '(12) 99999-9999'}</p>
+          <ReceiptHeader>
             <p>--------------------------------</p>
             <p style={{ fontWeight: 'bold' }}>RECIBO Nº #{String(selectedSale.id).slice(-6)}</p>
             <p>{formatDateTime(selectedSale.date)}</p>
             <p>--------------------------------</p>
-          </div>
+          </ReceiptHeader>
 
           <div className="print-section">
             <div className="print-row" style={{ fontWeight: 'bold' }}>
@@ -331,7 +329,7 @@ const Vendas = () => {
 
           <div className="print-footer">
             <p>Obrigado pela preferência!</p>
-            <p>infocentro.com.br</p>
+            <ReceiptSite />
             <p style={{ marginTop: '2mm', fontSize: '7pt' }}>* Documento sem valor fiscal *</p>
           </div>
         </div>

@@ -22,7 +22,7 @@ const formatBRL = (value) => {
 };
 
 /** Template visual da etiqueta — Clássico (340px quadrado) */
-const EtiquetaTemplate = ({ etiqueta }) => {
+const EtiquetaTemplate = ({ etiqueta, storeName = 'INFO CENTRO' }) => {
   const parcelado = calculateInstallmentValue(etiqueta.valorAVista);
   const valorNum = typeof etiqueta.valorAVista === 'string'
     ? parseFloat(etiqueta.valorAVista.replace(',', '.'))
@@ -30,7 +30,7 @@ const EtiquetaTemplate = ({ etiqueta }) => {
 
   return (
     <div className="etiqueta-template">
-      <div className="etiqueta-logo">INFO CENTRO</div>
+      <div className="etiqueta-logo">{storeName}</div>
 
       <div className="etiqueta-modelo">{etiqueta.marcaModelo}</div>
 
@@ -80,7 +80,7 @@ const EtiquetaTemplate = ({ etiqueta }) => {
 };
 
 const Etiquetas = () => {
-  const { etiquetas, setEtiquetas } = useGlobalState();
+  const { etiquetas, setEtiquetas, settings } = useGlobalState();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEtiqueta, setEditingEtiqueta] = useState(null);
@@ -296,7 +296,7 @@ const Etiquetas = () => {
             {filteredEtiquetas.map(etiqueta => (
               <div key={etiqueta.id} className="etiqueta-card">
                 <div className="etiqueta-preview">
-                  <EtiquetaTemplate etiqueta={etiqueta} />
+                  <EtiquetaTemplate etiqueta={etiqueta} storeName={(settings?.storeName || 'INFO CENTRO').toUpperCase()} />
                 </div>
 
                 <div className="etiqueta-actions">

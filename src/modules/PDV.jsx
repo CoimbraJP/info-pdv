@@ -3,6 +3,7 @@ import { Search, Plus, Trash2, CreditCard, X, ShoppingCart, Pencil, ArrowLeft } 
 import { formatCurrency } from '../utils/formatters';
 import { useGlobalState } from '../context/GlobalState';
 import { PAYMENT_METHODS, paymentLabel } from '../constants/payment';
+import { ReceiptHeader, ReceiptSite } from '../components/ReceiptBrand';
 import './PDV.css';
 
 /**
@@ -627,12 +628,9 @@ const PDV = () => {
 
       {/* ── Print Receipt (screen-hidden) ── */}
       <div className={`print-only template-${settings?.osPrintTemplate || 'thermal-1'}`}>
-        <div className="print-header">
-          <span className="print-logo">{settings?.storeName || 'INFO CENTRO'}</span>
-          <p>{settings?.storeAddress || 'SJC — São Paulo'}</p>
-          <p>Tel: {settings?.storePhone || '(12) 99999-9999'}</p>
+        <ReceiptHeader>
           <p>{new Date().toLocaleString('pt-BR')}</p>
-        </div>
+        </ReceiptHeader>
         <div className="print-section text-center">
           <span className="print-section-title">CUPOM NÃO FISCAL</span>
         </div>
@@ -675,7 +673,7 @@ const PDV = () => {
         </div>
         <div className="print-footer">
           <p>Obrigado pela preferência!</p>
-          <p>infocentro.com.br</p>
+          <ReceiptSite />
         </div>
       </div>
     </div>

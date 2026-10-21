@@ -9,20 +9,22 @@
  * (Drive/pendrive).
  */
 
-export const buildBackupPayload = ({ products, osList, sales, settings }) => ({
+export const buildBackupPayload = ({ products, osList, sales, settings, storeId = 'infocentro' }) => ({
   app: 'INFO CENTRO',
+  store: storeId,
   version: 1,
   exportedAt: new Date().toISOString(),
   data: { products, serviceOrders: osList, sales, settings },
 });
 
 export const downloadBackup = (payload, { auto = false } = {}) => {
+  const prefix = payload?.store && payload.store !== 'infocentro' ? payload.store : 'infocentro';
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   const stamp = new Date().toISOString().slice(0, 10);
   a.href = url;
-  a.download = `infocentro-backup-${stamp}${auto ? '-auto' : ''}.json`;
+  a.download = `${prefix}-backup-${stamp}${auto ? '-auto' : ''}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

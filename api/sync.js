@@ -6,13 +6,8 @@
  * que mudou no servidor desde então.
  */
 import { connectDB } from './_db.js';
-import { Product, Sale, ServiceOrder, Settings, MODELS } from './_models.js';
-
-const STORES = {
-  products: Product,
-  sales: Sale,
-  serviceOrders: ServiceOrder,
-};
+import { modelsFor } from './_models.js';
+import { storeFromRequest } from './_stores.js';
 
 async function readBody(req) {
   if (req.body && typeof req.body === 'object') return req.body;
@@ -42,7 +37,7 @@ async function upsertAll(Model, records, serverTime) {
   }
 }
 
-async function applyTombstones(tombstones, serverTime) {
+async function applyTombstones(MODELS, tombstones, serverTime) {
   for (const t of tombstones || []) {
     const Model = MODELS[t.store];
     if (!Model || t.id == null) continue;
@@ -67,7 +62,7 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Store');
   }
 
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -84,8 +79,14 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Não autorizado' });
   }
 
+  const store = storeFromRequest(req);
+  if (!store) return res.status(400).json({ error: 'Loja desconhecida' });
+
   try {
     await connectDB();
+    // Cada loja grava e lê no próprio banco
+    const { Product, Sale, ServiceOrder, Settings, MODELS } = modelsFor(store.db);
+    const STORES = { products: Product, sales: Sale, serviceOrders: ServiceOrder };
 
     const body = await readBody(req);
     const {
@@ -114,7 +115,7 @@ export default async function handler(req, res) {
         );
       }
     }
-    await applyTombstones(tombstones, serverTime);
+    await applyTombstones(MODELS, tombstones, serverTime);
 
     // ── PULL: devolve o que mudou no servidor desde lastSyncAt ──
     const out = { serverTime, tombstones: [] };

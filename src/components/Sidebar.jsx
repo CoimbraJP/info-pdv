@@ -12,9 +12,12 @@ import {
   RefreshCw,
   Lock,
   Unlock,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
 import { canAccessModule } from '../utils/auth';
+import { storeBrand } from '../constants/stores';
+import { useStore } from '../context/StoreContext';
 import AdminUnlockModal from './AdminUnlockModal';
 import './Sidebar.css';
 
@@ -54,7 +57,10 @@ const menuItems = [
 ];
 
 const Sidebar = ({ activeModule, setActiveModule }) => {
-  const { isAdmin, lockAdmin } = useGlobalState();
+  const { isAdmin, lockAdmin, settings } = useGlobalState();
+  const { store, leaveStore } = useStore();
+  const brand = storeBrand(store, settings);
+  const [first, ...rest] = brand.name.toUpperCase().split(' ');
   const [showUnlock, setShowUnlock] = useState(false);
 
   const visibleItems = menuItems.filter(item => canAccessModule(item.id, isAdmin));
@@ -72,8 +78,10 @@ const Sidebar = ({ activeModule, setActiveModule }) => {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <img src="/logo-square.png" alt="Info Centro" className="logo-img" />
-        <h1 className="logo-text">INFO <span className="text-primary">CENTRO</span></h1>
+        {brand.logo
+          ? <img src={brand.logo} alt={brand.name} className="logo-img" />
+          : <div className="logo-img logo-fallback" aria-hidden="true">{brand.name.charAt(0)}</div>}
+        <h1 className="logo-text">{first} {rest.length > 0 && <span className="text-primary">{rest.join(' ')}</span>}</h1>
       </div>
 
       <nav className="sidebar-nav" role="navigation" aria-label="Menu principal">
@@ -103,11 +111,14 @@ const Sidebar = ({ activeModule, setActiveModule }) => {
           <div className="avatar" aria-hidden="true">{isAdmin ? 'A' : 'V'}</div>
           <div className="user-info">
             <span className="user-name">{isAdmin ? 'Administrador' : 'Vendedor'}</span>
-            <span className="user-role">Loja Principal</span>
+            <span className="user-role">{brand.name}</span>
           </div>
           <span className="user-mode-icon" aria-hidden="true">
             {isAdmin ? <Unlock size={15} /> : <Lock size={15} />}
           </span>
+        </button>
+        <button type="button" className="switch-store" onClick={leaveStore} title="Voltar para a tela de código e abrir outra loja">
+          <ArrowLeftRight size={14} /> Trocar loja
         </button>
       </div>
 

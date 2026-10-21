@@ -985,3 +985,34 @@ input, select, textarea {
   font-size: 0.68rem; font-weight: 700; line-height: 1;
 }
 .kbd-on-primary { background: rgba(0, 0, 0, 0.12); border-color: rgba(0, 0, 0, 0.25); color: var(--on-primary); }
+
+/* ── Tela de código da loja ── */
+.store-gate {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--s-6);
+  background:
+    radial-gradient(60% 50% at 50% 0%, var(--primary-subtle), transparent 70%),
+    var(--bg-color);
+}
+.store-gate-card {
+  width: 100%; max-width: 340px;
+  display: flex; flex-direction: column; align-items: center; gap: var(--s-2);
+  padding: var(--s-8) var(--s-6);
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+.store-gate-card.is-shaking { animation: admin-shake 0.35s ease-in-out; }
+.store-gate-icon {
+  width: 56px; height: 56px; border-radius: var(--radius-lg);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--primary-subtle); color: var(--primary-color);
+  margin-bottom: var(--s-2);
+}
+.store-gate-title { font-family: var(--font-heading); font-size: 1.4rem; font-weight: 700; margin: 0; }
+.store-gate-sub { font-size: 0.85rem; color: var(--text-muted); margin: 0 0 var(--s-3); }
+.store-gate-input { height: 56px; text-align: center; font-size: 1.6rem; letter-spacing: 0.4em; font-weight: 700; }
+.store-gate-btn { width: 100%; justify-content: center; margin-top: var(--s-1); }

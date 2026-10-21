@@ -218,3 +218,24 @@ button.user-profile:focus-visible { outline: 2px solid var(--primary-color); out
 }
 .user-profile.is-admin .user-mode-icon { color: var(--primary-color); }
 button.user-profile:hover .user-mode-icon { color: var(--primary-color); }
+
+/* ── Multi-loja ── */
+.logo-fallback {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--primary-fill); color: var(--on-primary);
+  font-family: var(--font-heading); font-weight: 800; font-size: 1.1rem;
+  border-radius: var(--radius-md);
+}
+.switch-store {
+  display: flex; align-items: center; justify-content: center; gap: var(--s-2);
+  width: 100%;
+  padding: var(--s-2);
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-dim);
+  font-family: var(--font-main); font-size: 0.75rem;
+  cursor: pointer;
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+.switch-store:hover { color: var(--primary-color); border-color: var(--border-strong); }
