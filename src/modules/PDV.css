@@ -413,3 +413,27 @@
   color: var(--status-success);
   font-size: 0.85rem;
 }
+
+/* ── Checkout por passos ── */
+.checkout-modal:focus { outline: none; }
+.checkout-step-label {
+  display: block;
+  font-size: 0.78rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.checkout-big-input { height: 56px; font-size: 1.5rem; font-weight: 700; margin-top: var(--s-2); }
+.discount-confirm {
+  padding: var(--s-5);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  background: var(--status-success-bg);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+.discount-confirm-title {
+  margin: 0 0 var(--s-2);
+  font-family: var(--font-heading);
+  font-size: 1.4rem; font-weight: 700;
+  color: var(--status-success);
+}
+.text-main { color: var(--text-main); }
