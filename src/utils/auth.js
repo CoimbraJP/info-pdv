@@ -14,8 +14,11 @@
 
 export const ROLE = { VENDEDOR: 'vendedor', ADMIN: 'admin' };
 
-/** Telas que só o administrador vê. Vendedor fica com PDV, OS e Estoque. */
-export const ADMIN_ONLY_MODULES = ['vendas', 'dashboard', 'etiquetas', 'config'];
+/**
+ * Telas que só o administrador vê. Vendedor fica com PDV, Histórico de
+ * Vendas (sem faturamento — serve para reimprimir recibo), OS e Estoque.
+ */
+export const ADMIN_ONLY_MODULES = ['dashboard', 'etiquetas', 'config'];
 
 export const canAccessModule = (moduleId, isAdmin) =>
   isAdmin || !ADMIN_ONLY_MODULES.includes(moduleId);

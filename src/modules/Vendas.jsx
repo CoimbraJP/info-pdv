@@ -40,7 +40,7 @@ const PERIOD_OPTIONS = [
 ];
 
 const Vendas = () => {
-  const { sales, settings } = useGlobalState();
+  const { sales, settings, isAdmin } = useGlobalState();
   const [selectedSale, setSelectedSale] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [period, setPeriod] = useState('hoje');
@@ -123,6 +123,8 @@ const Vendas = () => {
             title="Ver vendas de um dia específico"
           />
 
+          {/* Faturamento do período: só ADM. O vendedor usa esta tela para reimprimir recibos. */}
+          {isAdmin && (
           <div className="stat-chip">
             <TrendingUp size={15} className="text-success" />
             <div>
@@ -130,6 +132,7 @@ const Vendas = () => {
               <span className="stat-chip-value text-success">{formatCurrency(totalPeriod)}</span>
             </div>
           </div>
+          )}
           <div className="stat-chip">
             <Calendar size={15} className="text-muted" />
             <div>
@@ -142,7 +145,8 @@ const Vendas = () => {
 
       <div className="module-body">
         <p className="result-count">
-          {filteredSales.length} {filteredSales.length === 1 ? 'venda' : 'vendas'} · {totalItens} {totalItens === 1 ? 'item' : 'itens'} · total {formatCurrency(totalPeriod)}
+          {filteredSales.length} {filteredSales.length === 1 ? 'venda' : 'vendas'} · {totalItens} {totalItens === 1 ? 'item' : 'itens'}
+          {isAdmin && ` · total ${formatCurrency(totalPeriod)}`}
           {filteredSales.length > 0 && ' · clique numa linha para ver os itens'}
         </p>
 
