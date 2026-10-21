@@ -5,6 +5,7 @@ import {
 import { pushPull, isOnline } from '../utils/sync';
 import { buildBackupPayload, downloadBackup } from '../utils/backup';
 import { ROLE, hashPassword, MIN_PASSWORD_LENGTH } from '../utils/auth';
+import { applyTheme } from '../utils/theme';
 
 /** Intervalo do backup automático em arquivo (1×/dia na primeira abertura). */
 const AUTO_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -148,6 +149,9 @@ export const GlobalProvider = ({ children }) => {
   const deleteOS = (id) => {
     setOsList((prev) => prev.filter((os) => os.id !== id));
   };
+
+  /* ── Tema (escuro/claro): segue settings.theme, inclusive vindo do sync ── */
+  useEffect(() => { applyTheme(settings?.theme); }, [settings?.theme]);
 
   /* ── Acesso Vendedor × Administrador ── */
   const isAdmin = role === ROLE.ADMIN;

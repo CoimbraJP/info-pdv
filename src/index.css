@@ -20,6 +20,10 @@
   --primary-active:   #E8C200;
   --primary-glow:     rgba(255, 215, 0, 0.18);
   --primary-subtle:   rgba(255, 215, 0, 0.08);
+  --primary-fill:       #FFD700;  /* fundo de botões/destaques (sempre amarelo) */
+  --primary-fill-hover: #F5CC00;
+  --on-primary:         #000;     /* texto sobre o amarelo */
+  --overlay-color:      rgba(0, 0, 0, 0.88);
 
   /* ── Text ── */
   --text-main:        #F2F3F5;
@@ -95,6 +99,57 @@
   --font-family-main:    var(--font-main);
   --font-family-heading: var(--font-heading);
 }
+/* ==========================================================================
+   TEMA CLARO — ativado por <html data-theme="light"> (Configurações > Aparência)
+   Só redefine variáveis: todas as telas herdam automaticamente.
+   ========================================================================== */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-color:         #F3F4F6;
+  --surface-color:    #FFFFFF;
+  --surface-hover:    #F1F2F5;
+  --surface-active:   #E5E7EB;
+  --surface-glass:    rgba(255, 255, 255, 0.88);
+
+  /* Amarelo puro some no branco: o TEXTO "primary" vira dourado escuro;
+     botões e destaques preenchidos continuam amarelos (--primary-fill). */
+  --primary-color:    #8A6A00;
+  --primary-hover:    #745900;
+  --primary-active:   #614A00;
+  --primary-glow:     rgba(230, 180, 0, 0.28);
+  --primary-subtle:   rgba(255, 200, 0, 0.16);
+  --primary-fill:       #FFD700;
+  --primary-fill-hover: #F2C600;
+  --on-primary:         #000;
+  --overlay-color:      rgba(17, 24, 39, 0.45);
+
+  --text-main:        #111318;
+  --text-muted:       #4B5260;
+  --text-dim:         #858B98;
+
+  --border-color:     #E2E5EA;
+  --border-strong:    #C9CED6;
+
+  --status-success:   #15803D;
+  --status-success-bg: rgba(22, 163, 74, 0.12);
+  --status-warning:   #B45309;
+  --status-warning-bg: rgba(217, 119, 6, 0.12);
+  --status-danger:    #DC2626;
+  --status-danger-bg: rgba(220, 38, 38, 0.10);
+  --status-info:      #1D4ED8;
+  --status-info-bg:   rgba(37, 99, 235, 0.10);
+
+  --shadow-sm:  0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-md:  0 4px 12px rgba(16, 24, 40, 0.08), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --shadow-lg:  0 12px 32px rgba(16, 24, 40, 0.12), 0 4px 8px rgba(16, 24, 40, 0.06);
+}
+/* Realces brancos semitransparentes (feitos para o fundo escuro) */
+[data-theme="light"] .os-table tbody tr:hover td,
+[data-theme="light"] .cart-table tbody tr:hover td { background-color: var(--surface-hover); }
+/* Brilhos dourados decorativos ficam fortes demais no claro */
+[data-theme="light"] .deco-tile { box-shadow: 0 0 18px rgba(230, 180, 0, 0.18); }
+
 
 /* ==========================================================================
    RESET & BASE
@@ -285,7 +340,7 @@ input, select, textarea {
    ========================================================================== */
 .bg-surface       { background-color: var(--surface-color); }
 .bg-surface-hover { background-color: var(--surface-hover); }
-.bg-primary       { background-color: var(--primary-color); color: #000; }
+.bg-primary       { background-color: var(--primary-fill); color: var(--on-primary); }
 .bg-primary-light { background-color: var(--primary-subtle); }
 .bg-success-light { background-color: var(--status-success-bg); }
 .bg-warning-light { background-color: var(--status-warning-bg); }
@@ -341,13 +396,13 @@ input, select, textarea {
 
 /* Primary */
 .btn-primary {
-  background-color: var(--primary-color);
-  color: #000;
-  border-color: var(--primary-color);
+  background-color: var(--primary-fill);
+  color: var(--on-primary);
+  border-color: var(--primary-fill);
   font-weight: 600;
 }
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--primary-hover);
+  background-color: var(--primary-fill-hover);
   box-shadow: 0 0 20px var(--primary-glow), 0 4px 12px rgba(255, 215, 0, 0.2);
 }
 
@@ -539,7 +594,7 @@ input, select, textarea {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.88);
+  background-color: var(--overlay-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -688,7 +743,7 @@ input, select, textarea {
 }
 .seg-item:hover { color: var(--text-main); background: var(--surface-hover); }
 .seg-item:active { transform: scale(0.97); }
-.seg-item.is-active { color: var(--bg-color); background: var(--primary-color); }
+.seg-item.is-active { color: var(--on-primary); background: var(--primary-fill); }
 .seg-item.seg-icon { padding: var(--s-2); }
 .seg-dot {
   width: 6px; height: 6px; border-radius: 50%;

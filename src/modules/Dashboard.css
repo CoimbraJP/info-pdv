@@ -37,8 +37,8 @@
 }
 
 .period-btn.active {
-  background-color: var(--primary-color);
-  color: #000;
+  background-color: var(--primary-fill);
+  color: var(--on-primary);
   font-weight: 700;
 }
 
@@ -186,8 +186,8 @@
 .rank {
   width: 26px;
   height: 26px;
-  background-color: var(--primary-color);
-  color: #000;
+  background-color: var(--primary-fill);
+  color: var(--on-primary);
   border-radius: var(--radius-pill);
   display: flex;
   align-items: center;

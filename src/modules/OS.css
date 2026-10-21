@@ -76,8 +76,8 @@
 }
 
 .filter-chip.active {
-  background-color: var(--primary-color);
-  color: #000;
+  background-color: var(--primary-fill);
+  color: var(--on-primary);
   border-color: var(--primary-color);
   box-shadow: 0 0 12px var(--primary-glow);
 }
@@ -96,8 +96,8 @@
 }
 
 .view-mode-toggle .btn-icon.active {
-  background-color: var(--primary-color);
-  color: #000;
+  background-color: var(--primary-fill);
+  color: var(--on-primary);
   border-color: var(--primary-color);
 }
 

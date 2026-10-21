@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Settings, Printer, Eye, Store, Check, Database, Download, Upload, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Settings, Printer, Eye, Store, Check, Database, Download, Upload, RefreshCw, ShieldCheck, Sun, Moon, Palette } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
 import { buildBackupPayload, downloadBackup } from '../utils/backup';
 
@@ -237,6 +237,32 @@ const Config = () => {
 
       <div className="module-body">
         <div className="config-wrap">
+
+          {/* ── Aparência ── */}
+          <section className="panel">
+            <header className="panel-head">
+              <h3 className="panel-title"><Palette size={17} /> Aparência</h3>
+              <div className="seg-control" role="group" aria-label="Tema">
+                <button
+                  type="button"
+                  className={`seg-item ${settings?.theme !== 'light' ? 'is-active' : ''}`}
+                  onClick={() => setSettings({ ...settings, theme: 'dark' })}
+                >
+                  <Moon size={14} /> Escuro
+                </button>
+                <button
+                  type="button"
+                  className={`seg-item ${settings?.theme === 'light' ? 'is-active' : ''}`}
+                  onClick={() => setSettings({ ...settings, theme: 'light' })}
+                >
+                  <Sun size={14} /> Claro
+                </button>
+              </div>
+            </header>
+            <p className="text-sm text-muted">
+              Vale para todos os terminais da loja (sincroniza junto com as configurações).
+            </p>
+          </section>
 
           {/* ── Dados da Loja ── */}
           <section className="panel">
