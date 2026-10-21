@@ -384,3 +384,10 @@
   color: var(--status-success);
   font-family: var(--font-heading);
 }
+
+/* ── Navegação por teclado ── */
+.suggestion-item.is-active { background-color: var(--surface-active); box-shadow: inset 3px 0 0 var(--primary-fill); }
+.suggestion-avulso.is-active { background-color: var(--primary-subtle); }
+.payment-btn { position: relative; }
+.payment-btn .kbd { position: absolute; top: 6px; right: 8px; }
+.checkout-hint { margin-right: auto; font-size: 0.75rem; color: var(--text-dim); }

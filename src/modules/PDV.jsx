@@ -4,11 +4,26 @@ import { formatCurrency } from '../utils/formatters';
 import { useGlobalState } from '../context/GlobalState';
 import './PDV.css';
 
+/**
+ * "3*7891234" ou "3*cabo hdmi" → { qty: 3, term: '7891234' }.
+ * Só o asterisco é separador (um nome como "4x4..." não vira quantidade).
+ */
+const parseQuery = (raw) => {
+  const m = String(raw || '').match(/^\s*(\d{1,3})\s*\*\s*(.+)$/);
+  return m
+    ? { qty: Math.max(1, parseInt(m[1], 10)), term: m[2].trim() }
+    : { qty: 1, term: String(raw || '').trim() };
+};
+
+const isTypingField = (el) =>
+  el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT');
+
 const PDV = () => {
   const [cart, setCart] = useState([]);
   const [barcode, setBarcode] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0); // sugestão destacada (↑/↓)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [avulsoItem, setAvulsoItem] = useState({ name: '', price: '', quantity: 1 });
@@ -19,13 +34,20 @@ const PDV = () => {
   const [amountReceived, setAmountReceived] = useState('');
 
   const barcodeInputRef = useRef(null);
+  const suggestionsRef = useRef(null);
+  const confirmBtnRef = useRef(null);
+  const amountInputRef = useRef(null);
+  const submittingRef = useRef(false); // evita venda duplicada com Enter repetido
   const { products, addSale, settings } = useGlobalState();
 
   // Focus barcode input on click anywhere (except inputs)
   useEffect(() => {
     barcodeInputRef.current?.focus();
     const handleGlobalClick = () => {
-      if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+      // Com modal aberto o foco é do modal — antes o clique devolvia o foco
+      // para a busca (atrás do modal) e o Enter disparava a busca.
+      if (document.querySelector('.modal-overlay')) return;
+      if (!isTypingField(document.activeElement)) {
         barcodeInputRef.current?.focus();
       }
     };
@@ -37,10 +59,12 @@ const PDV = () => {
   const handleInputChange = (e) => {
     const value = e.target.value;
     setBarcode(value);
-    if (value.trim().length >= 1) {
+    setActiveIndex(0);
+    const { term } = parseQuery(value);
+    if (term.length >= 1) {
       const filtered = products.filter(p =>
-        (p.name || '').toLowerCase().includes(value.toLowerCase()) ||
-        (p.barcode || '').includes(value)
+        (p.name || '').toLowerCase().includes(term.toLowerCase()) ||
+        (p.barcode || '').includes(term)
       );
       setSuggestions([...filtered, { id: 'avulso', name: 'Adicionar item avulso...', barcode: '' }]);
       setShowSuggestions(true);
@@ -50,11 +74,11 @@ const PDV = () => {
     }
   };
 
-  const selectSuggestion = (product) => {
+  const selectSuggestion = (product, qty = parseQuery(barcode).qty) => {
     if (product.id === 'avulso') {
       openAvulsoModal();
     } else {
-      addToCart(product);
+      addToCart(product, qty);
       setBarcode('');
       setSuggestions([]);
       setShowSuggestions(false);
@@ -63,7 +87,8 @@ const PDV = () => {
   };
 
   const openAvulsoModal = () => {
-    setAvulsoItem({ name: barcode, price: '', quantity: 1 });
+    const { qty, term } = parseQuery(barcode);
+    setAvulsoItem({ name: term, price: '', quantity: qty });
     setEditingId(null);
     setIsModalOpen(true);
     setShowSuggestions(false);
@@ -100,19 +125,46 @@ const PDV = () => {
 
   const handleBarcodeSubmit = (e) => {
     e.preventDefault();
-    if (!barcode.trim()) return;
-    const product = products.find(p => p.barcode === barcode || p.name === barcode);
-    if (product) {
-      addToCart(product);
-      setBarcode('');
-      setSuggestions([]);
-      setShowSuggestions(false);
-    } else if (suggestions.filter(s => s.id !== 'avulso').length > 0) {
-      selectSuggestion(suggestions[0]);
+    const { qty, term } = parseQuery(barcode);
+    if (!term) return;
+    const menuOpen = showSuggestions && suggestions.length > 0;
+
+    // 1) Escolha feita com ↑/↓ tem prioridade
+    if (menuOpen && activeIndex > 0) {
+      selectSuggestion(suggestions[activeIndex], qty);
+      return;
+    }
+    // 2) Leitor de código de barras: correspondência exata
+    const exact = products.find(p =>
+      p.barcode === term || (p.name || '').toLowerCase() === term.toLowerCase()
+    );
+    if (exact) {
+      selectSuggestion(exact, qty);
+      return;
+    }
+    // 3) Primeira sugestão (destacada) ou item avulso
+    if (menuOpen) {
+      selectSuggestion(suggestions[activeIndex] || suggestions[0], qty);
     } else {
       openAvulsoModal();
     }
   };
+
+  /** ↑/↓ navega nas sugestões; Enter (no submit) adiciona a destacada. */
+  const handleBarcodeKeyDown = (e) => {
+    const len = suggestions.length;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!len) return;
+      e.preventDefault();
+      if (!showSuggestions) { setShowSuggestions(true); return; }
+      setActiveIndex(i => (e.key === 'ArrowDown' ? (i + 1) % len : (i - 1 + len) % len));
+    }
+  };
+
+  // Mantém a sugestão destacada visível ao navegar com as setas
+  useEffect(() => {
+    suggestionsRef.current?.children[activeIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, showSuggestions]);
 
   const addToCart = (product, qty = 1) => {
     setCart(prev => {
@@ -140,9 +192,38 @@ const PDV = () => {
   const change = paymentMethod === 'dinheiro' ? Math.max(0, parseFloat(amountReceived || 0) - total) : 0;
   const canConfirm = paymentMethod !== 'dinheiro' || parseFloat(amountReceived || 0) >= total;
 
+  const openCheckout = () => {
+    if (cart.length === 0) return;
+    setPaymentMethod('cartao');
+    setAmountReceived('');
+    setShowSuggestions(false);
+    setIsCheckoutOpen(true);
+  };
+
+  const choosePayment = (method) => setPaymentMethod(method);
+
+  /**
+   * Foco sempre no lugar certo:
+   * - checkout aberto em Cartão/PIX → botão Confirmar (Enter finaliza);
+   * - checkout em Dinheiro → campo "Valor recebido";
+   * - nenhum modal → campo de busca.
+   */
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (isCheckoutOpen) {
+        if (paymentMethod === 'dinheiro') amountInputRef.current?.focus();
+        else confirmBtnRef.current?.focus();
+      } else if (!isModalOpen) {
+        barcodeInputRef.current?.focus();
+      }
+    }, 30);
+    return () => clearTimeout(t);
+  }, [isCheckoutOpen, isModalOpen, paymentMethod]);
+
   const handleCheckoutSubmit = (e) => {
-    e.preventDefault();
-    if (!canConfirm) return;
+    e?.preventDefault();
+    if (!canConfirm || submittingRef.current) return;
+    submittingRef.current = true;
 
     addSale({
       items: cart,
@@ -158,31 +239,59 @@ const PDV = () => {
       setIsCheckoutOpen(false);
       setPaymentMethod('cartao');
       setAmountReceived('');
+      submittingRef.current = false;
       setTimeout(() => barcodeInputRef.current?.focus(), 150);
     }, 150);
   };
 
-  // Keyboard shortcuts
+  /*
+   * Atalhos de teclado:
+   *  Busca    ↑/↓ escolhe · Enter adiciona · 3*código = quantidade
+   *  F2       finalizar venda · F4 cancelar venda · Esc fecha
+   *  Checkout C ou 1 = Cartão/PIX · D ou 2 = Dinheiro · ←/→ alterna
+   *           Enter confirma e imprime
+   */
+  const handleKeyDown = (e) => {
+    if (isCheckoutOpen) {
+      const typing = isTypingField(e.target);
+      const k = e.key.toLowerCase();
+      if (k === 'c' || (!typing && k === '1')) { e.preventDefault(); choosePayment('cartao'); return; }
+      if (k === 'd' || (!typing && k === '2')) { e.preventDefault(); choosePayment('dinheiro'); return; }
+      if (!typing && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        choosePayment(paymentMethod === 'cartao' ? 'dinheiro' : 'cartao');
+        return;
+      }
+      // Enter fora de campo/botão (ex.: foco no fundo do modal) também confirma
+      if (e.key === 'Enter' && !e.target.closest?.('form')) {
+        e.preventDefault();
+        handleCheckoutSubmit();
+        return;
+      }
+    }
+    if (e.key === 'F2' && cart.length > 0 && !isCheckoutOpen && !isModalOpen) {
+      e.preventDefault();
+      openCheckout();
+    }
+    if (e.key === 'F4' && cart.length > 0 && !isCheckoutOpen && !isModalOpen) {
+      e.preventDefault();
+      handleCancelSale();
+    }
+    if (e.key === 'Escape') {
+      setIsCheckoutOpen(false);
+      setIsModalOpen(false);
+      setShowSuggestions(false);
+    }
+  };
+
+  // O listener é registrado uma vez e sempre chama a versão mais recente
+  const keyHandlerRef = useRef(handleKeyDown);
+  useEffect(() => { keyHandlerRef.current = handleKeyDown; });
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'F2' && cart.length > 0 && !isCheckoutOpen && !isModalOpen) {
-        e.preventDefault();
-        setIsCheckoutOpen(true);
-      }
-      if (e.key === 'F4' && cart.length > 0 && !isCheckoutOpen && !isModalOpen) {
-        e.preventDefault();
-        handleCancelSale();
-      }
-      if (e.key === 'Escape') {
-        setIsCheckoutOpen(false);
-        setIsModalOpen(false);
-        setShowSuggestions(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleCancelSale é recriado a cada render; as deps abaixo bastam
-  }, [cart, isCheckoutOpen, isModalOpen]);
+    const onKey = (e) => keyHandlerRef.current(e);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   return (
     <div className="pdv-container">
@@ -247,20 +356,29 @@ const PDV = () => {
                   ref={barcodeInputRef}
                   type="text"
                   className="input barcode-input"
-                  placeholder="Código de barras ou nome do produto..."
+                  placeholder="Código de barras ou nome do produto  ·  ↑↓ escolhe · Enter adiciona · 3*código"
                   value={barcode}
                   onChange={handleInputChange}
+                  onKeyDown={handleBarcodeKeyDown}
+                  role="combobox"
+                  aria-expanded={showSuggestions && suggestions.length > 0}
+                  aria-controls="pdv-suggestions"
+                  aria-activedescendant={showSuggestions && suggestions[activeIndex] ? `sug-${suggestions[activeIndex].id}` : undefined}
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                   onFocus={() => barcode.length >= 1 && setShowSuggestions(true)}
                   autoComplete="off"
                 />
                 {showSuggestions && suggestions.length > 0 && (
-                  <div className="suggestions-menu">
-                    {suggestions.map(p => (
+                  <div className="suggestions-menu" id="pdv-suggestions" role="listbox" ref={suggestionsRef}>
+                    {suggestions.map((p, i) => (
                       <div
                         key={p.id}
-                        className={`suggestion-item ${p.id === 'avulso' ? 'suggestion-avulso' : ''}`}
-                        onMouseDown={() => selectSuggestion(p)}
+                        id={`sug-${p.id}`}
+                        role="option"
+                        aria-selected={i === activeIndex}
+                        className={`suggestion-item ${p.id === 'avulso' ? 'suggestion-avulso' : ''} ${i === activeIndex ? 'is-active' : ''}`}
+                        onMouseDown={(e) => { e.preventDefault(); selectSuggestion(p); }}
+                        onMouseEnter={() => setActiveIndex(i)}
                       >
                         <div className="suggestion-info">
                           <span className="suggestion-name">{p.name}</span>
@@ -300,7 +418,7 @@ const PDV = () => {
             <button
               className="btn action-btn btn-primary"
               disabled={cart.length === 0}
-              onClick={() => setIsCheckoutOpen(true)}
+              onClick={openCheckout}
             >
               <CreditCard size={22} />
               <span>Finalizar Venda</span>
@@ -393,18 +511,22 @@ const PDV = () => {
                   <button
                     type="button"
                     className={`payment-btn ${paymentMethod === 'cartao' ? 'active' : ''}`}
-                    onClick={() => setPaymentMethod('cartao')}
+                    onClick={() => choosePayment('cartao')}
+                    aria-pressed={paymentMethod === 'cartao'}
                   >
                     <span className="payment-btn-icon">💳</span>
                     <span>Cartão / PIX</span>
+                    <kbd className="kbd">C</kbd>
                   </button>
                   <button
                     type="button"
                     className={`payment-btn ${paymentMethod === 'dinheiro' ? 'active' : ''}`}
-                    onClick={() => setPaymentMethod('dinheiro')}
+                    onClick={() => choosePayment('dinheiro')}
+                    aria-pressed={paymentMethod === 'dinheiro'}
                   >
                     <span className="payment-btn-icon">💵</span>
                     <span>Dinheiro</span>
+                    <kbd className="kbd">D</kbd>
                   </button>
                 </div>
               </div>
@@ -417,7 +539,7 @@ const PDV = () => {
                     step="0.01"
                     min="0"
                     className="input"
-                    autoFocus
+                    ref={amountInputRef}
                     value={amountReceived}
                     onChange={e => setAmountReceived(e.target.value)}
                     placeholder="0,00"
@@ -437,13 +559,17 @@ const PDV = () => {
                 </div>
               )}
 
-              <div className="flex gap-2 justify-end mt-6">
+              <div className="flex gap-2 justify-end items-center mt-6">
+                <span className="checkout-hint">
+                  <kbd className="kbd">C</kbd>/<kbd className="kbd">D</kbd> pagamento · <kbd className="kbd">Esc</kbd> voltar
+                </span>
                 <button type="button" className="btn btn-surface" onClick={() => setIsCheckoutOpen(false)}>
                   Voltar
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={!canConfirm}>
+                <button type="submit" className="btn btn-primary" disabled={!canConfirm} ref={confirmBtnRef}>
                   <CreditCard size={18} />
                   Confirmar e Imprimir
+                  <kbd className="kbd kbd-on-primary">Enter</kbd>
                 </button>
               </div>
             </form>
