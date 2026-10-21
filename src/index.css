@@ -899,3 +899,20 @@ input, select, textarea {
   color: var(--primary-color);
   font-size: 0.7rem; font-weight: 700;
 }
+
+/* ── Modal de senha do ADM ── */
+.admin-modal { max-width: 400px; }
+.admin-modal-error {
+  min-height: 1.2em;
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--status-danger);
+}
+.admin-modal.is-shaking { animation: admin-shake 0.35s ease-in-out; }
+@keyframes admin-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}

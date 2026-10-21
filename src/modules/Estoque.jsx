@@ -5,7 +5,7 @@ import { formatCurrency } from '../utils/formatters';
 import './OS.css';
 
 const Estoque = () => {
-  const { products, setProducts } = useGlobalState();
+  const { products, setProducts, isAdmin } = useGlobalState();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -208,6 +208,7 @@ const Estoque = () => {
               <span className="stat-chip-value">{products.length}</span>
             </div>
           </div>
+          {isAdmin && (
           <div className="stat-chip">
             <div>
               <span className="stat-chip-label">Valor em estoque</span>
@@ -216,6 +217,7 @@ const Estoque = () => {
               </span>
             </div>
           </div>
+          )}
           <div className="stat-chip" style={criticalCount > 0 ? { borderColor: 'rgba(245,158,11,0.35)' } : undefined}>
             <div>
               <span className="stat-chip-label">Críticos</span>
@@ -224,6 +226,7 @@ const Estoque = () => {
               </span>
             </div>
           </div>
+          {isAdmin && (<>
           <button className="btn-outline btn-outline-sm" onClick={handleExportXLS} title="Exportar estoque em formato XLS">
             <Download size={16} /> Exportar XLS
           </button>
@@ -240,6 +243,7 @@ const Estoque = () => {
           <button className="btn btn-primary btn-sm" onClick={() => handleOpenModal()}>
             <Plus size={16} /> Novo Produto
           </button>
+          </>)}
         </div>
       </div>
 
@@ -283,7 +287,7 @@ const Estoque = () => {
               {searchTerm ? 'Nenhum produto encontrado' : 'Nenhum produto cadastrado'}
             </p>
             <p className="empty-state-sub">
-              {searchTerm ? `Nada corresponde a "${searchTerm}"` : 'Cadastre o primeiro produto para começar'}
+              {searchTerm ? `Nada corresponde a "${searchTerm}"` : (isAdmin ? 'Cadastre o primeiro produto para começar' : 'Peça ao administrador para cadastrar os produtos')}
             </p>
           </div>
         ) : (
@@ -294,10 +298,10 @@ const Estoque = () => {
                   <th>Código</th>
                   <th>Produto</th>
                   <th className="text-center">Estoque</th>
-                  <th className="text-right">Margem</th>
-                  <th className="text-right">Custo</th>
+                  {isAdmin && <th className="text-right">Margem</th>}
+                  {isAdmin && <th className="text-right">Custo</th>}
                   <th className="text-right">Preço</th>
-                  <th className="text-right" style={{ width: '110px' }}>Ações</th>
+                  {isAdmin && <th className="text-right" style={{ width: '110px' }}>Ações</th>}
                 </tr>
               </thead>
               <tbody>
@@ -308,9 +312,10 @@ const Estoque = () => {
                     </td>
                     <td className="font-medium">{product.name}</td>
                     <td className="text-center">{stockBadge(product.stock)}</td>
-                    <td className="text-right">{marginBadge(product.price, product.cost)}</td>
-                    <td className="text-right text-muted">{product.cost ? formatCurrency(product.cost) : '—'}</td>
+                    {isAdmin && <td className="text-right">{marginBadge(product.price, product.cost)}</td>}
+                    {isAdmin && <td className="text-right text-muted">{product.cost ? formatCurrency(product.cost) : '—'}</td>}
                     <td className="text-right font-bold text-primary">{formatCurrency(product.price)}</td>
+                    {isAdmin && (
                     <td className="text-right">
                       <div className="flex gap-1 justify-end">
                         <button className="icon-outline" onClick={() => handleOpenModal(product)} title="Editar produto">
@@ -321,6 +326,7 @@ const Estoque = () => {
                         </button>
                       </div>
                     </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -330,7 +336,7 @@ const Estoque = () => {
       </div>
 
       {/* ── Product Modal ── */}
-      {isModalOpen && (
+      {isAdmin && isModalOpen && (
         <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && handleCloseModal()}>
           <div className="modal-content card">
             <div className="flex justify-between items-center border-bottom pb-4 mb-6">

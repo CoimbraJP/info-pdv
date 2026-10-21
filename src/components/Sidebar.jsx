@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   ShoppingCart,
   ClipboardList,
@@ -9,8 +10,12 @@ import {
   Cloud,
   CloudOff,
   RefreshCw,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
+import { canAccessModule } from '../utils/auth';
+import AdminUnlockModal from './AdminUnlockModal';
 import './Sidebar.css';
 
 const SYNC_UI = {
@@ -49,6 +54,21 @@ const menuItems = [
 ];
 
 const Sidebar = ({ activeModule, setActiveModule }) => {
+  const { isAdmin, lockAdmin } = useGlobalState();
+  const [showUnlock, setShowUnlock] = useState(false);
+
+  const visibleItems = menuItems.filter(item => canAccessModule(item.id, isAdmin));
+
+  /** Rodapé: no modo Vendedor pede a senha; no modo ADM volta para Vendedor. */
+  const handleProfileClick = () => {
+    if (isAdmin) {
+      lockAdmin();
+      if (!canAccessModule(activeModule, false)) setActiveModule('pdv');
+    } else {
+      setShowUnlock(true);
+    }
+  };
+
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -57,7 +77,7 @@ const Sidebar = ({ activeModule, setActiveModule }) => {
       </div>
 
       <nav className="sidebar-nav" role="navigation" aria-label="Menu principal">
-        {menuItems.map(item => (
+        {visibleItems.map(item => (
           <button
             key={item.id}
             id={`nav-${item.id}`}
@@ -74,14 +94,29 @@ const Sidebar = ({ activeModule, setActiveModule }) => {
 
       <div className="sidebar-footer">
         <SyncStatus />
-        <div className="user-profile">
-          <div className="avatar" aria-hidden="true">A</div>
+        <button
+          type="button"
+          className={`user-profile ${isAdmin ? 'is-admin' : 'is-seller'}`}
+          onClick={handleProfileClick}
+          title={isAdmin ? 'Clique para voltar ao modo Vendedor' : 'Clique para entrar no modo Administrador (senha)'}
+        >
+          <div className="avatar" aria-hidden="true">{isAdmin ? 'A' : 'V'}</div>
           <div className="user-info">
-            <span className="user-name">Administrador</span>
+            <span className="user-name">{isAdmin ? 'Administrador' : 'Vendedor'}</span>
             <span className="user-role">Loja Principal</span>
           </div>
-        </div>
+          <span className="user-mode-icon" aria-hidden="true">
+            {isAdmin ? <Unlock size={15} /> : <Lock size={15} />}
+          </span>
+        </button>
       </div>
+
+      {showUnlock && (
+        <AdminUnlockModal
+          onClose={() => setShowUnlock(false)}
+          onUnlocked={() => setShowUnlock(false)}
+        />
+      )}
     </aside>
   );
 };

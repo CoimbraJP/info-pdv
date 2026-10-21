@@ -7,15 +7,23 @@ import Config from './modules/Config';
 import Estoque from './modules/Estoque';
 import Etiquetas from './modules/Etiquetas';
 import Vendas from './modules/Vendas';
-import { GlobalProvider } from './context/GlobalState';
+import { GlobalProvider, useGlobalState } from './context/GlobalState';
+import { canAccessModule } from './utils/auth';
 import './App.css';
 import './modules/PrintOS.css';
 
-function App() {
+/**
+ * Casca do app (dentro do Provider, para poder ler o papel atual).
+ * Tela administrativa nunca renderiza no modo Vendedor — mesmo que o
+ * estado aponte para ela (ex.: acabou de sair do modo ADM).
+ */
+function AppShell() {
+  const { isAdmin } = useGlobalState();
   const [activeModule, setActiveModule] = useState('pdv');
+  const current = canAccessModule(activeModule, isAdmin) ? activeModule : 'pdv';
 
   const renderModule = () => {
-    switch (activeModule) {
+    switch (current) {
       case 'pdv':       return <PDV />;
       case 'os':        return <OS />;
       case 'dashboard': return <Dashboard />;
@@ -28,13 +36,19 @@ function App() {
   };
 
   return (
+    <div className="app-layout">
+      <Sidebar activeModule={current} setActiveModule={setActiveModule} />
+      <main className="main-content">
+        {renderModule()}
+      </main>
+    </div>
+  );
+}
+
+function App() {
+  return (
     <GlobalProvider>
-      <div className="app-layout">
-        <Sidebar activeModule={activeModule} setActiveModule={setActiveModule} />
-        <main className="main-content">
-          {renderModule()}
-        </main>
-      </div>
+      <AppShell />
     </GlobalProvider>
   );
 }

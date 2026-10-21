@@ -193,3 +193,28 @@
 
 .sync-spin { animation: sync-spin 1s linear infinite; }
 @keyframes sync-spin { to { transform: rotate(360deg); } }
+
+/* ── Rodapé: alternância Vendedor × ADM ── */
+button.user-profile {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: var(--font-main);
+  text-align: left;
+  cursor: pointer;
+}
+button.user-profile:hover { border-color: var(--border-color); }
+button.user-profile:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+.user-profile.is-seller .avatar {
+  background: var(--surface-active);
+  color: var(--text-main);
+  border: 1px solid var(--border-strong);
+}
+.user-mode-icon {
+  margin-left: auto;
+  display: inline-flex;
+  color: var(--text-dim);
+  transition: color var(--t-fast);
+}
+.user-profile.is-admin .user-mode-icon { color: var(--primary-color); }
+button.user-profile:hover .user-mode-icon { color: var(--primary-color); }

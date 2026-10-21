@@ -4,6 +4,7 @@ import {
 } from '../utils/db';
 import { pushPull, isOnline } from '../utils/sync';
 import { buildBackupPayload, downloadBackup } from '../utils/backup';
+import { ROLE, hashPassword, MIN_PASSWORD_LENGTH } from '../utils/auth';
 
 /** Intervalo do backup automático em arquivo (1×/dia na primeira abertura). */
 const AUTO_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -46,6 +47,9 @@ export const GlobalProvider = ({ children }) => {
   const [sales, setSalesState] = useState([]);
   const [etiquetas, setEtiquetasState] = useState([]);
   const [settings, setSettingsState] = useState(defaultSettings);
+
+  // Papel atual: NÃO é persistido — toda abertura do app começa como Vendedor.
+  const [role, setRole] = useState(ROLE.VENDEDOR);
 
   const [syncStatus, setSyncStatus] = useState(isOnline() ? 'idle' : 'offline');
   const [lastSyncAt, setLastSyncAt] = useState(0);
@@ -144,6 +148,50 @@ export const GlobalProvider = ({ children }) => {
   const deleteOS = (id) => {
     setOsList((prev) => prev.filter((os) => os.id !== id));
   };
+
+  /* ── Acesso Vendedor × Administrador ── */
+  const isAdmin = role === ROLE.ADMIN;
+  const hasAdminPassword = Boolean(settings?.adminPinHash);
+
+  /** Tenta entrar no modo ADM. Retorna true se a senha confere. */
+  const unlockAdmin = async (password) => {
+    const stored = settingsRef.current?.adminPinHash;
+    if (!stored) return false;
+    const ok = (await hashPassword(password)) === stored;
+    if (ok) setRole(ROLE.ADMIN);
+    return ok;
+  };
+
+  /** Primeiro acesso: cria a senha do ADM e já entra no modo ADM. */
+  const createAdminPassword = async (password) => {
+    if ((password || '').length < MIN_PASSWORD_LENGTH) {
+      return { ok: false, error: `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` };
+    }
+    if (settingsRef.current?.adminPinHash) {
+      return { ok: false, error: 'Já existe uma senha de administrador.' };
+    }
+    const hash = await hashPassword(password);
+    setSettings((prev) => ({ ...prev, adminPinHash: hash }));
+    setRole(ROLE.ADMIN);
+    return { ok: true };
+  };
+
+  /** Troca a senha (exige a atual). Só é chamada de dentro do modo ADM. */
+  const changeAdminPassword = async (current, next) => {
+    const stored = settingsRef.current?.adminPinHash;
+    if (stored && (await hashPassword(current)) !== stored) {
+      return { ok: false, error: 'Senha atual incorreta.' };
+    }
+    if ((next || '').length < MIN_PASSWORD_LENGTH) {
+      return { ok: false, error: `A nova senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` };
+    }
+    const hash = await hashPassword(next);
+    setSettings((prev) => ({ ...prev, adminPinHash: hash }));
+    return { ok: true };
+  };
+
+  /** Volta para o modo Vendedor (não pede senha). */
+  const lockAdmin = () => setRole(ROLE.VENDEDOR);
 
   /* ── Sincronização (push/pull last-write-wins) ── */
   const applyCollection = (key, ref, setState, value) => {
@@ -303,6 +351,9 @@ export const GlobalProvider = ({ children }) => {
       settings, setSettings,
       sales, setSales,
       addSale,
+      // acesso
+      role, isAdmin, hasAdminPassword,
+      unlockAdmin, createAdminPassword, changeAdminPassword, lockAdmin,
       // sincronização (uso opcional pela UI)
       syncStatus, lastSyncAt, syncNow: runSync,
     }}>

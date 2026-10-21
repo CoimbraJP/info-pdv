@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Settings, Printer, Eye, Store, Check, Database, Download, Upload, RefreshCw } from 'lucide-react';
+import { Settings, Printer, Eye, Store, Check, Database, Download, Upload, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
 import { buildBackupPayload, downloadBackup } from '../utils/backup';
 
@@ -135,7 +135,10 @@ const Config = () => {
     osList, setOsList,
     sales, setSales,
     syncNow,
+    changeAdminPassword,
   } = useGlobalState();
+  const [passForm, setPassForm] = useState({ current: '', next: '', confirm: '' });
+  const [passMsg, setPassMsg] = useState(null);
   const [saved, setSaved] = useState(false);
   const [backupMsg, setBackupMsg] = useState(null);
   const fileInputRef = useRef(null);
@@ -176,7 +179,9 @@ const Config = () => {
         if (Array.isArray(d.products)) setProducts(d.products);
         if (Array.isArray(d.serviceOrders)) setOsList(d.serviceOrders);
         if (Array.isArray(d.sales)) setSales(d.sales);
-        if (d.settings) setSettings(d.settings);
+        // Restaurar backup não muda a senha do ADM: um backup antigo (sem hash)
+        // apagaria a senha e liberaria o "criar senha" para qualquer pessoa.
+        if (d.settings) setSettings({ ...d.settings, adminPinHash: settings?.adminPinHash || d.settings.adminPinHash });
 
         flashBackup({ type: 'ok', text: 'Backup importado. Os dados foram restaurados.' });
         syncNow?.();
@@ -191,6 +196,22 @@ const Config = () => {
 
   const handleTemplateChange = (id) => {
     setSettings({ ...settings, osPrintTemplate: id });
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (passForm.next !== passForm.confirm) {
+      setPassMsg({ type: 'err', text: 'A nova senha e a confirmação não conferem.' });
+      return;
+    }
+    const res = await changeAdminPassword(passForm.current, passForm.next);
+    if (res.ok) {
+      setPassForm({ current: '', next: '', confirm: '' });
+      setPassMsg({ type: 'ok', text: 'Senha alterada. Vale para todos os terminais após sincronizar.' });
+    } else {
+      setPassMsg({ type: 'err', text: res.error });
+    }
+    setTimeout(() => setPassMsg(null), 5000);
   };
 
   const handleSaveStore = (e) => {
@@ -349,6 +370,51 @@ const Config = () => {
                 <span>{backupMsg.text}</span>
               </div>
             )}
+          </section>
+
+          {/* ── Acesso do Administrador ── */}
+          <section className="panel">
+            <header className="panel-head">
+              <h3 className="panel-title"><ShieldCheck size={17} /> Senha do Administrador</h3>
+            </header>
+            <p className="text-sm text-muted mb-4">
+              O sistema sempre abre no modo Vendedor (PDV, Ordens de Serviço e Estoque sem custos).
+              Esta senha libera o modo ADM ao clicar no perfil no rodapé do menu.
+            </p>
+            <form onSubmit={handleChangePassword}>
+              <div className="flex gap-4 mb-4" style={{ flexWrap: 'wrap' }}>
+                <div className="form-group flex-1" style={{ minWidth: '160px' }}>
+                  <label>Senha atual</label>
+                  <input
+                    type="password" className="input" autoComplete="current-password" required
+                    value={passForm.current}
+                    onChange={e => setPassForm({ ...passForm, current: e.target.value })}
+                  />
+                </div>
+                <div className="form-group flex-1" style={{ minWidth: '160px' }}>
+                  <label>Nova senha</label>
+                  <input
+                    type="password" className="input" autoComplete="new-password" required
+                    value={passForm.next}
+                    onChange={e => setPassForm({ ...passForm, next: e.target.value })}
+                  />
+                </div>
+                <div className="form-group flex-1" style={{ minWidth: '160px' }}>
+                  <label>Confirmar nova senha</label>
+                  <input
+                    type="password" className="input" autoComplete="new-password" required
+                    value={passForm.confirm}
+                    onChange={e => setPassForm({ ...passForm, confirm: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-between items-center gap-3">
+                <span className={`text-sm ${passMsg?.type === 'err' ? 'text-danger' : 'text-success'}`}>
+                  {passMsg?.text || ''}
+                </span>
+                <button type="submit" className="btn btn-primary">Alterar senha</button>
+              </div>
+            </form>
           </section>
 
         </div>
