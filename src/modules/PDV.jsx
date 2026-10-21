@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Trash2, CreditCard, X, ShoppingCart, Pencil, Banknote, ArrowLeft } from 'lucide-react';
+import { Search, Plus, Trash2, CreditCard, X, ShoppingCart, Pencil, ArrowLeft } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { useGlobalState } from '../context/GlobalState';
+import { PAYMENT_METHODS, paymentLabel } from '../constants/payment';
 import './PDV.css';
 
 /**
@@ -58,16 +59,14 @@ const PDV = () => {
   // Checkout
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cartao');
-  const [amountReceived, setAmountReceived] = useState('');
   const [finalPriceInput, setFinalPriceInput] = useState(''); // valor final combinado com o cliente
-  // Passos: 'pagamento' → 'valor' (Enter finaliza; digitar menos = desconto) → 'recebido' (só dinheiro)
+  // Passos: 'pagamento' → 'valor' (Enter finaliza e imprime; digitar menos = desconto)
   const [checkoutStep, setCheckoutStep] = useState('pagamento');
 
   const barcodeInputRef = useRef(null);
   const suggestionsRef = useRef(null);
   const checkoutRef = useRef(null);
   const finalInputRef = useRef(null);
-  const amountInputRef = useRef(null);
   const submittingRef = useRef(false); // evita venda duplicada com Enter repetido
   const { products, addSale, settings } = useGlobalState();
 
@@ -220,15 +219,10 @@ const PDV = () => {
 
   const subtotal = round2(cart.reduce((acc, item) => acc + (item.price * item.quantity), 0));
   const { final: total, discount, error: priceError } = parseFinalPrice(finalPriceInput, subtotal);
-  const received = parseMoney(amountReceived);
-  const receivedValue = Number.isNaN(received) ? total : received; // vazio = valor exato
-  const change = paymentMethod === 'dinheiro' ? round2(Math.max(0, receivedValue - total)) : 0;
-  const cashShort = paymentMethod === 'dinheiro' && receivedValue < total;
 
   const openCheckout = () => {
     if (cart.length === 0) return;
     setPaymentMethod('cartao');
-    setAmountReceived('');
     setFinalPriceInput(toInputMoney(subtotal));
     setCheckoutStep('pagamento');
     setShowSuggestions(false);
@@ -242,24 +236,18 @@ const PDV = () => {
 
   /** Esc volta um passo; no primeiro passo fecha. */
   const stepBack = () => {
-    if (checkoutStep === 'recebido') setCheckoutStep('valor');
-    else if (checkoutStep === 'valor') setCheckoutStep('pagamento');
+    if (checkoutStep === 'valor') setCheckoutStep('pagamento');
     else closeCheckout();
   };
 
-  /**
-   * Enter no valor: sem confirmação extra. Cartão/PIX finaliza e imprime na
-   * hora (com o desconto no cupom, se o valor foi baixado); dinheiro só pede
-   * o valor recebido para o troco.
-   */
+  /** Enter no valor: finaliza e imprime na hora, em qualquer forma de pagamento. */
   const confirmValue = () => {
     if (priceError) return;
-    if (paymentMethod === 'dinheiro') setCheckoutStep('recebido');
-    else finalizeSale();
+    finalizeSale();
   };
 
   const finalizeSale = () => {
-    if (submittingRef.current || priceError || cashShort) return;
+    if (submittingRef.current || priceError) return;
     submittingRef.current = true;
 
     addSale({
@@ -268,7 +256,7 @@ const PDV = () => {
       discount,
       total,
       paymentMethod,
-      amountReceived: paymentMethod === 'dinheiro' ? receivedValue : total,
+      amountReceived: total,
     });
 
     // Espera o React renderizar o cupom antes de imprimir
@@ -277,7 +265,6 @@ const PDV = () => {
       setCart([]);
       closeCheckout();
       setPaymentMethod('cartao');
-      setAmountReceived('');
       setFinalPriceInput('');
       submittingRef.current = false;
       setTimeout(() => barcodeInputRef.current?.focus(), 150);
@@ -290,7 +277,6 @@ const PDV = () => {
       if (isCheckoutOpen) {
         if (checkoutStep === 'pagamento') checkoutRef.current?.focus();
         if (checkoutStep === 'valor') { finalInputRef.current?.focus(); finalInputRef.current?.select(); }
-        if (checkoutStep === 'recebido') amountInputRef.current?.focus();
       } else if (!isModalOpen) {
         barcodeInputRef.current?.focus();
       }
@@ -302,9 +288,8 @@ const PDV = () => {
    * Atalhos de teclado:
    *  Busca     ↑/↓ escolhe · Enter adiciona · 3*código = quantidade
    *  Venda     F2 finalizar · F4 cancelar · Esc fecha
-   *  Checkout  1) C = Cartão/PIX · D = Dinheiro (ou ←/→) · Enter
+   *  Checkout  1) C = Cartão · P = PIX · D = Dinheiro (ou 1/2/3, ←/→) · Enter
    *            2) valor da venda (digite menos para dar desconto) · Enter finaliza
-   *            3) só dinheiro: valor recebido (vazio = exato) · Enter
    *            Esc volta um passo
    */
   const handleKeyDown = (e) => {
@@ -313,18 +298,21 @@ const PDV = () => {
       if (e.key === 'Escape') { e.preventDefault(); stepBack(); return; }
 
       if (checkoutStep === 'pagamento') {
-        if (k === 'c' || k === '1') { e.preventDefault(); setPaymentMethod('cartao'); return; }
-        if (k === 'd' || k === '2') { e.preventDefault(); setPaymentMethod('dinheiro'); return; }
+        const picked = PAYMENT_METHODS.find(m => m.key === k || m.num === k);
+        if (picked) { e.preventDefault(); setPaymentMethod(picked.id); return; }
         if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
           e.preventDefault();
-          setPaymentMethod(m => (m === 'cartao' ? 'dinheiro' : 'cartao'));
+          const step = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1;
+          setPaymentMethod(cur => {
+            const i = PAYMENT_METHODS.findIndex(m => m.id === cur);
+            return PAYMENT_METHODS[(i + step + PAYMENT_METHODS.length) % PAYMENT_METHODS.length].id;
+          });
           return;
         }
         if (e.key === 'Enter') { e.preventDefault(); setCheckoutStep('valor'); }
         return;
       }
       if (checkoutStep === 'valor' && e.key === 'Enter') { e.preventDefault(); confirmValue(); return; }
-      if (checkoutStep === 'recebido' && e.key === 'Enter') { e.preventDefault(); finalizeSale(); }
       return; // demais teclas: digitação normal nos campos
     }
 
@@ -559,7 +547,7 @@ const PDV = () => {
               </div>
               {checkoutStep !== 'pagamento' && (
                 <div className="checkout-sub" style={{ borderBottom: 'none', borderTop: '1px dashed var(--border-strong)', margin: 'var(--s-2) 0 0', padding: 'var(--s-2) 0 0' }}>
-                  <span>Pagamento: <strong>{paymentMethod === 'cartao' ? 'Cartão / PIX' : 'Dinheiro'}</strong></span>
+                  <span>Pagamento: <strong>{paymentLabel(paymentMethod)}</strong></span>
                   {discount > 0 && checkoutStep !== 'valor' && (
                     <span className="text-success">Venda por <strong>{formatCurrency(total)}</strong></span>
                   )}
@@ -572,26 +560,19 @@ const PDV = () => {
               <>
                 <label className="checkout-step-label">Forma de pagamento</label>
                 <div className="payment-toggle mt-2">
-                  <button
-                    type="button"
-                    className={`payment-btn ${paymentMethod === 'cartao' ? 'active' : ''}`}
-                    onClick={() => { setPaymentMethod('cartao'); setCheckoutStep('valor'); }}
-                    aria-pressed={paymentMethod === 'cartao'}
-                  >
-                    <span className="payment-btn-icon">💳</span>
-                    <span>Cartão / PIX</span>
-                    <kbd className="kbd">C</kbd>
-                  </button>
-                  <button
-                    type="button"
-                    className={`payment-btn ${paymentMethod === 'dinheiro' ? 'active' : ''}`}
-                    onClick={() => { setPaymentMethod('dinheiro'); setCheckoutStep('valor'); }}
-                    aria-pressed={paymentMethod === 'dinheiro'}
-                  >
-                    <span className="payment-btn-icon">💵</span>
-                    <span>Dinheiro</span>
-                    <kbd className="kbd">D</kbd>
-                  </button>
+                  {PAYMENT_METHODS.map(m => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className={`payment-btn ${paymentMethod === m.id ? 'active' : ''}`}
+                      onClick={() => { setPaymentMethod(m.id); setCheckoutStep('valor'); }}
+                      aria-pressed={paymentMethod === m.id}
+                    >
+                      <span className="payment-btn-icon">{m.icon}</span>
+                      <span>{m.label}</span>
+                      <kbd className="kbd">{m.key.toUpperCase()}</kbd>
+                    </button>
+                  ))}
                 </div>
               </>
             )}
@@ -618,36 +599,10 @@ const PDV = () => {
               </div>
             )}
 
-            {/* Passo 3 — dinheiro: valor recebido */}
-            {checkoutStep === 'recebido' && (
-              <div className="form-group">
-                <label htmlFor="pdv-received" className="checkout-step-label">Valor recebido (R$)</label>
-                <input
-                  id="pdv-received"
-                  ref={amountInputRef}
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  className={`input checkout-big-input ${cashShort ? 'input-error' : ''}`}
-                  placeholder={`Vazio = ${formatCurrency(total)} (exato)`}
-                  value={amountReceived}
-                  onChange={e => setAmountReceived(e.target.value)}
-                />
-                {cashShort
-                  ? <p className="text-danger text-sm mt-2">Faltam {formatCurrency(total - receivedValue)}</p>
-                  : change > 0 && (
-                    <div className="change-display">
-                      <span className="text-muted font-medium">Troco</span>
-                      <span className="change-value">{formatCurrency(change)}</span>
-                    </div>
-                  )}
-              </div>
-            )}
-
             {/* Rodapé */}
             <div className="flex gap-2 justify-end items-center mt-6">
               <span className="checkout-hint">
-                {checkoutStep === 'pagamento' && <><kbd className="kbd">C</kbd>/<kbd className="kbd">D</kbd> escolhe · </>}
+                {checkoutStep === 'pagamento' && <><kbd className="kbd">C</kbd>/<kbd className="kbd">P</kbd>/<kbd className="kbd">D</kbd> escolhe · </>}
                 <kbd className="kbd">Esc</kbd> {checkoutStep === 'pagamento' ? 'fechar' : 'voltar'}
               </span>
               <button type="button" className="btn btn-surface" onClick={stepBack}>
@@ -661,13 +616,7 @@ const PDV = () => {
               )}
               {checkoutStep === 'valor' && (
                 <button type="button" className="btn btn-primary" onClick={confirmValue} disabled={!!priceError}>
-                  {paymentMethod === 'dinheiro' ? 'Continuar' : 'Finalizar e imprimir'}
-                  <kbd className="kbd kbd-on-primary">Enter</kbd>
-                </button>
-              )}
-              {checkoutStep === 'recebido' && (
-                <button type="button" className="btn btn-primary" onClick={finalizeSale} disabled={cashShort}>
-                  <Banknote size={18} /> Finalizar e imprimir
+                  Finalizar e imprimir
                   <kbd className="kbd kbd-on-primary">Enter</kbd>
                 </button>
               )}
@@ -721,20 +670,8 @@ const PDV = () => {
           </div>
           <div className="print-row">
             <span>Pagamento</span>
-            <span>{paymentMethod === 'cartao' ? 'Cartão/PIX' : 'Dinheiro'}</span>
+            <span>{paymentLabel(paymentMethod)}</span>
           </div>
-          {paymentMethod === 'dinheiro' && (
-            <>
-              <div className="print-row">
-                <span>Recebido</span>
-                <span>{formatCurrency(receivedValue)}</span>
-              </div>
-              <div className="print-row">
-                <span>Troco</span>
-                <span>{formatCurrency(change)}</span>
-              </div>
-            </>
-          )}
         </div>
         <div className="print-footer">
           <p>Obrigado pela preferência!</p>

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   DollarSign, TrendingUp, Package, Wrench, ArrowUpRight, ArrowDownRight,
-  Calendar, BarChart2, Receipt, CreditCard, Banknote, ClipboardList,
+  Calendar, BarChart2, Receipt, CreditCard, Banknote, ClipboardList, Smartphone,
 } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
 import { formatCurrency, parseDate } from '../utils/formatters';
@@ -150,6 +150,7 @@ const Dashboard = () => {
     // Pagamentos
     const byCard = salesInPeriod.filter((s) => s.paymentMethod === 'cartao').reduce((a, s) => a + s.total, 0);
     const byCash = salesInPeriod.filter((s) => s.paymentMethod === 'dinheiro').reduce((a, s) => a + s.total, 0);
+    const byPix = salesInPeriod.filter((s) => s.paymentMethod === 'pix').reduce((a, s) => a + s.total, 0);
 
     // Mais vendidos (por quantidade)
     const map = new Map();
@@ -174,14 +175,14 @@ const Dashboard = () => {
 
     return {
       productRevenue, serviceRevenue, totalRevenue, totalProfit, productProfit,
-      numSales, ticket, byCard, byCash, topProducts,
+      numSales, ticket, byCard, byCash, byPix, topProducts,
       osEmAndamento, osMarcondes, contasReceber, estoqueCritico,
       margin: totalRevenue ? (totalProfit / totalRevenue) * 100 : 0,
       buckets: buildBuckets(period, sales),
     };
   }, [period, products, osList, sales]);
 
-  const payMax = Math.max(1, m.byCard, m.byCash);
+  const payMax = Math.max(1, m.byCard, m.byCash, m.byPix);
 
   return (
     <div className="dashboard-container">
@@ -337,10 +338,17 @@ const Dashboard = () => {
             <h3 className="panel-title">Formas de Pagamento</h3>
             <div className="pay-row">
               <div className="pay-head">
-                <span><CreditCard size={15} className="text-info" /> Cartão / PIX</span>
+                <span><CreditCard size={15} className="text-info" /> Cartão</span>
                 <strong>{formatCurrency(m.byCard)}</strong>
               </div>
               <div className="pay-bar"><div className="pay-fill pay-card" style={{ transform: `scaleX(${m.byCard / payMax})` }} /></div>
+            </div>
+            <div className="pay-row">
+              <div className="pay-head">
+                <span><Smartphone size={15} className="text-primary" /> PIX</span>
+                <strong>{formatCurrency(m.byPix)}</strong>
+              </div>
+              <div className="pay-bar"><div className="pay-fill pay-pix" style={{ transform: `scaleX(${m.byPix / payMax})` }} /></div>
             </div>
             <div className="pay-row">
               <div className="pay-head">

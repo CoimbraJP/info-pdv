@@ -2,10 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { Receipt, Printer, Calendar, TrendingUp, ChevronRight } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
 import { formatCurrency, formatDateTime, formatDate, parseDate } from '../utils/formatters';
+import { paymentLabel, paymentBadge } from '../constants/payment';
 import './OS.css';
 
-const paymentLabel = (method) => ({ cartao: 'Cartão / PIX', dinheiro: 'Dinheiro' }[method] || method);
-const paymentBadge = (method) => method === 'cartao' ? 'badge-info' : 'badge-success';
 
 const vendaStyles = `
 .venda-row-expand {
@@ -239,7 +238,7 @@ const Vendas = () => {
                                     Desconto: <strong>− {formatCurrency(sale.discount)}</strong>
                                   </span>
                                 )}
-                                {sale.paymentMethod === 'dinheiro' && sale.amountReceived && (
+                                {sale.paymentMethod === 'dinheiro' && sale.amountReceived > sale.total && (
                                   <>
                                     <span className="text-muted text-sm">
                                       Recebido: <strong>{formatCurrency(sale.amountReceived)}</strong>
@@ -316,7 +315,7 @@ const Vendas = () => {
               <span>Pagamento</span>
               <span>{paymentLabel(selectedSale.paymentMethod)}</span>
             </div>
-            {selectedSale.paymentMethod === 'dinheiro' && selectedSale.amountReceived && (
+            {selectedSale.paymentMethod === 'dinheiro' && selectedSale.amountReceived > selectedSale.total && (
               <>
                 <div className="print-row">
                   <span>Recebido</span>

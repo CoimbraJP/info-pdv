@@ -268,3 +268,5 @@
 }
 .pay-card { background: var(--status-info); }
 .pay-cash { background: var(--status-success); }
+
+.pay-pix { background: var(--primary-fill); }
