@@ -16,19 +16,16 @@ const parseQuery = (raw) => {
 };
 
 /**
- * Desconto digitado em um campo só: "10%" = percentual; "15", "15,50" ou
- * "R$ 15,50" = valor em reais. Retorna o valor em R$ (2 casas) ou erro.
+ * Desconto por VALOR FINAL: a venda deu 214, o vendedor digita 200 e o
+ * sistema calcula o desconto (14). Aceita "200", "199,90" ou "R$ 199,90".
  */
-const parseDiscount = (raw, subtotal) => {
+const parseFinalPrice = (raw, subtotal) => {
   const s = String(raw || '').trim();
   if (!s) return { value: 0, error: '' };
-  const isPct = s.endsWith('%');
-  const num = parseFloat(s.replace(/[R$\s%]/g, '').replace(/\./g, '').replace(',', '.'));
-  if (!Number.isFinite(num) || num < 0) return { value: 0, error: 'Desconto inválido' };
-  if (isPct && num > 100) return { value: 0, error: 'Máximo 100%' };
-  const value = Math.round((isPct ? (subtotal * num) / 100 : num) * 100) / 100;
-  if (value > subtotal) return { value: 0, error: 'Desconto maior que o subtotal' };
-  return { value, error: '', pct: isPct ? num : null };
+  const final = parseFloat(s.replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.'));
+  if (!Number.isFinite(final) || final <= 0) return { value: 0, error: 'Valor inválido' };
+  if (final > subtotal) return { value: 0, error: `Maior que o total da venda (${formatCurrency(subtotal)})` };
+  return { value: Math.round((subtotal - final) * 100) / 100, error: '' };
 };
 
 const isTypingField = (el) =>
@@ -48,7 +45,7 @@ const PDV = () => {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cartao');
   const [amountReceived, setAmountReceived] = useState('');
-  const [discountInput, setDiscountInput] = useState(''); // "10%" ou "15,00"
+  const [finalPriceInput, setFinalPriceInput] = useState(''); // valor final combinado com o cliente
 
   const barcodeInputRef = useRef(null);
   const suggestionsRef = useRef(null);
@@ -202,12 +199,12 @@ const PDV = () => {
     if (cart.length === 0) return;
     if (cart.length > 1 && !window.confirm(`Cancelar a venda e remover ${cart.length} itens do carrinho?`)) return;
     setCart([]);
-    setDiscountInput('');
+    setFinalPriceInput('');
     barcodeInputRef.current?.focus();
   };
 
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const { value: discount, error: discountError, pct: discountPct } = parseDiscount(discountInput, subtotal);
+  const { value: discount, error: discountError } = parseFinalPrice(finalPriceInput, subtotal);
   const total = Math.max(0, Math.round((subtotal - discount) * 100) / 100);
   const change = paymentMethod === 'dinheiro' ? Math.max(0, parseFloat(amountReceived || 0) - total) : 0;
   const canConfirm = !discountError && (paymentMethod !== 'dinheiro' || parseFloat(amountReceived || 0) >= total);
@@ -266,7 +263,7 @@ const PDV = () => {
       setIsCheckoutOpen(false);
       setPaymentMethod('cartao');
       setAmountReceived('');
-      setDiscountInput('');
+      setFinalPriceInput('');
       submittingRef.current = false;
       setTimeout(() => barcodeInputRef.current?.focus(), 150);
     }, 150);
@@ -438,7 +435,7 @@ const PDV = () => {
               <span>{formatCurrency(subtotal)}</span>
             </div>
             <div className={`totals-row ${discount > 0 ? 'text-success' : ''}`}>
-              <span>Desconto{discountPct ? ` (${discountPct}%)` : ''}</span>
+              <span>Desconto</span>
               <span>{discount > 0 ? `− ${formatCurrency(discount)}` : formatCurrency(0)}</span>
             </div>
             <div className="divider"></div>
@@ -547,7 +544,7 @@ const PDV = () => {
               {discount > 0 && (
                 <div className="checkout-sub">
                   <span>Subtotal {formatCurrency(subtotal)}</span>
-                  <span className="text-success">Desconto − {formatCurrency(discount)}{discountPct ? ` (${discountPct}%)` : ''}</span>
+                  <span className="text-success">Desconto − {formatCurrency(discount)}</span>
                 </div>
               )}
               <div className="flex justify-between items-center">
@@ -559,7 +556,7 @@ const PDV = () => {
             <form onSubmit={handleCheckoutSubmit}>
               <div className="form-group mb-5">
                 <label htmlFor="pdv-discount">
-                  Desconto <span className="text-dim">(R$ ou %)</span> <kbd className="kbd">F3</kbd>
+                  Valor com desconto (R$) <kbd className="kbd">F3</kbd>
                 </label>
                 <input
                   id="pdv-discount"
@@ -567,9 +564,9 @@ const PDV = () => {
                   type="text"
                   inputMode="decimal"
                   className={`input ${discountError ? 'input-error' : ''}`}
-                  placeholder="Ex.: 10% ou 15,00"
-                  value={discountInput}
-                  onChange={e => setDiscountInput(e.target.value)}
+                  placeholder={`Total ${formatCurrency(subtotal)} — digite o valor final, ex.: ${Math.floor(subtotal)}`}
+                  value={finalPriceInput}
+                  onChange={e => setFinalPriceInput(e.target.value)}
                   onKeyDown={e => {
                     // Enter no desconto não finaliza: passa para o próximo passo
                     if (e.key === 'Enter') {
@@ -582,6 +579,11 @@ const PDV = () => {
                   autoComplete="off"
                 />
                 {discountError && <p className="text-danger text-sm mt-2">{discountError}</p>}
+                {!discountError && discount > 0 && (
+                  <p className="discount-notice">
+                    Desconto de <strong>{formatCurrency(discount)}</strong> — cliente paga {formatCurrency(total)}
+                  </p>
+                )}
               </div>
 
               <div className="form-group mb-6">
@@ -690,7 +692,7 @@ const PDV = () => {
                 <span>{formatCurrency(subtotal)}</span>
               </div>
               <div className="print-row">
-                <span>Desconto{discountPct ? ` (${discountPct}%)` : ''}</span>
+                <span>Desconto</span>
                 <span>- {formatCurrency(discount)}</span>
               </div>
             </>

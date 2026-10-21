@@ -405,3 +405,11 @@
   border-bottom: 1px dashed var(--border-strong);
 }
 .input.input-error { border-color: var(--status-danger); }
+.discount-notice {
+  margin: var(--s-2) 0 0;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--radius-sm);
+  background: var(--status-success-bg);
+  color: var(--status-success);
+  font-size: 0.85rem;
+}
