@@ -27,16 +27,22 @@ export const CARD_FEES = {
   },
 };
 
-/** Opções da janela "Cartão" no PDV (tecla de atalho em `key`). */
-export const CARD_OPTIONS = [
-  { id: 'debito',    type: 'debito',  installments: 1, key: 'd', label: 'Débito',          rate: CARD_FEES.debito },
-  { id: 'credito-1', type: 'credito', installments: 1, key: '1', label: 'Crédito à vista', rate: CARD_FEES.credito[1] },
-  { id: 'credito-2', type: 'credito', installments: 2, key: '2', label: 'Crédito 2x',      rate: CARD_FEES.credito[2] },
-  { id: 'credito-3', type: 'credito', installments: 3, key: '3', label: 'Crédito 3x',      rate: CARD_FEES.credito[3] },
-  { id: 'credito-4', type: 'credito', installments: 4, key: '4', label: 'Crédito 4x',      rate: CARD_FEES.credito[4] },
+/** Janela "Cartão" no PDV: 3 modos; "Parcelado" abre a escolha de 2x a 18x. */
+export const CARD_MODES = [
+  { id: 'debito',    key: 'd', label: 'Débito' },
+  { id: 'avista',    key: 'v', label: 'Crédito à vista' },
+  { id: 'parcelado', key: 'p', label: 'Parcelado' },
 ];
 
-export const getCardOption = (id) => CARD_OPTIONS.find((o) => o.id === id) || CARD_OPTIONS[0];
+export const MAX_INSTALLMENTS = Math.max(...Object.keys(CARD_FEES.credito).map(Number)); // 18
+
+/** Modo + parcelas → dados gravados na venda e mostrados na tela. */
+export const cardDetails = (mode, installments = 2) => {
+  if (mode === 'debito') return { type: 'debito', installments: 1, rate: CARD_FEES.debito, label: 'Débito' };
+  if (mode === 'avista') return { type: 'credito', installments: 1, rate: CARD_FEES.credito[1], label: 'Crédito à vista' };
+  const n = Math.min(MAX_INSTALLMENTS, Math.max(2, Number(installments) || 2));
+  return { type: 'credito', installments: n, rate: CARD_FEES.credito[n], label: `Crédito ${n}x` };
+};
 
 /** Texto da forma de pagamento de uma venda (lista, recibo): "Cartão crédito 3x". */
 export const paymentText = (sale) => {

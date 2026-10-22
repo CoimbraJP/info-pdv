@@ -3,7 +3,7 @@ import { Search, Plus, Trash2, CreditCard, X, ShoppingCart, Pencil, ArrowLeft } 
 import { formatCurrency } from '../utils/formatters';
 import { round2, parseMoney, toInputMoney } from '../utils/money';
 import { useGlobalState } from '../context/GlobalState';
-import { PAYMENT_METHODS, CARD_OPTIONS, getCardOption, paymentText } from '../constants/payment';
+import { PAYMENT_METHODS, CARD_MODES, MAX_INSTALLMENTS, CARD_FEES, cardDetails, paymentText } from '../constants/payment';
 import { ReceiptHeader, ReceiptSite } from '../components/ReceiptBrand';
 import './PDV.css';
 
@@ -50,7 +50,9 @@ const PDV = () => {
   const [finalPriceInput, setFinalPriceInput] = useState(''); // valor final combinado com o cliente
   // Passos: 'pagamento' → 'valor' (Enter finaliza e imprime; digitar menos = desconto)
   const [checkoutStep, setCheckoutStep] = useState('pagamento');
-  const [cardOptionId, setCardOptionId] = useState('debito'); // janela do cartão
+  const [cardMode, setCardMode] = useState('debito'); // 'debito' | 'avista' | 'parcelado'
+  const [installments, setInstallments] = useState(2); // 2..18 quando parcelado
+  const installmentTyping = useRef({ buf: '', at: 0 }); // digitar "12" escolhe 12x
 
   const barcodeInputRef = useRef(null);
   const suggestionsRef = useRef(null);
@@ -208,7 +210,7 @@ const PDV = () => {
 
   const subtotal = round2(cart.reduce((acc, item) => acc + (item.price * item.quantity), 0));
   const { final: total, discount, error: priceError } = parseFinalPrice(finalPriceInput, subtotal);
-  const card = getCardOption(cardOptionId);
+  const card = cardDetails(cardMode, installments);
   const isCard = paymentMethod === 'cartao';
   // Taxa da maquininha sobre o valor cobrado (não muda o que o cliente paga)
   const feeAmount = isCard ? round2((total * card.rate) / 100) : 0;
@@ -220,10 +222,17 @@ const PDV = () => {
     setCheckoutStep(method === 'cartao' ? 'cartao' : 'valor');
   };
 
+  /** Escolheu o modo do cartão: parcelado abre a escolha de parcelas. */
+  const chooseCardMode = (mode) => {
+    setCardMode(mode);
+    setCheckoutStep(mode === 'parcelado' ? 'parcelas' : 'valor');
+  };
+
   const openCheckout = () => {
     if (cart.length === 0) return;
     setPaymentMethod('cartao');
-    setCardOptionId('debito');
+    setCardMode('debito');
+    setInstallments(2);
     setFinalPriceInput(toInputMoney(subtotal));
     setCheckoutStep('pagamento');
     setShowSuggestions(false);
@@ -237,7 +246,8 @@ const PDV = () => {
 
   /** Esc volta um passo; no primeiro passo fecha. */
   const stepBack = () => {
-    if (checkoutStep === 'valor') setCheckoutStep(isCard ? 'cartao' : 'pagamento');
+    if (checkoutStep === 'valor') setCheckoutStep(!isCard ? 'pagamento' : (cardMode === 'parcelado' ? 'parcelas' : 'cartao'));
+    else if (checkoutStep === 'parcelas') setCheckoutStep('cartao');
     else if (checkoutStep === 'cartao') setCheckoutStep('pagamento');
     else closeCheckout();
   };
@@ -284,7 +294,7 @@ const PDV = () => {
   useEffect(() => {
     const t = setTimeout(() => {
       if (isCheckoutOpen) {
-        if (checkoutStep === 'pagamento' || checkoutStep === 'cartao') checkoutRef.current?.focus();
+        if (['pagamento', 'cartao', 'parcelas'].includes(checkoutStep)) checkoutRef.current?.focus();
         if (checkoutStep === 'valor') { finalInputRef.current?.focus(); finalInputRef.current?.select(); }
       } else if (!isModalOpen) {
         barcodeInputRef.current?.focus();
@@ -322,15 +332,38 @@ const PDV = () => {
         return;
       }
       if (checkoutStep === 'cartao') {
-        const opt = CARD_OPTIONS.find(o => o.key === k);
-        if (opt) { e.preventDefault(); setCardOptionId(opt.id); return; }
+        const pos = ['1', '2', '3'].indexOf(k);
+        const mode = CARD_MODES.find(m => m.key === k) || CARD_MODES[pos];
+        if (mode) { e.preventDefault(); setCardMode(mode.id); return; }
         if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
           e.preventDefault();
           const step = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1;
-          setCardOptionId(cur => {
-            const i = CARD_OPTIONS.findIndex(o => o.id === cur);
-            return CARD_OPTIONS[(i + step + CARD_OPTIONS.length) % CARD_OPTIONS.length].id;
+          setCardMode(cur => {
+            const i = CARD_MODES.findIndex(m => m.id === cur);
+            return CARD_MODES[(i + step + CARD_MODES.length) % CARD_MODES.length].id;
           });
+          return;
+        }
+        if (e.key === 'Enter') { e.preventDefault(); chooseCardMode(cardMode); }
+        return;
+      }
+      if (checkoutStep === 'parcelas') {
+        // Digitar o número escolhe a parcela ("1" e "2" seguidos = 12x)
+        if (/^\d$/.test(e.key)) {
+          e.preventDefault();
+          const now = e.timeStamp; // ms do evento (para juntar "1" + "2" = 12)
+          const t = installmentTyping.current;
+          t.buf = now - t.at < 900 ? t.buf + e.key : e.key;
+          t.at = now;
+          const n = Number(t.buf);
+          if (n >= 2 && n <= MAX_INSTALLMENTS) setInstallments(n);
+          return;
+        }
+        const cols = 6;
+        const delta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -cols, ArrowDown: cols }[e.key];
+        if (delta) {
+          e.preventDefault();
+          setInstallments(n => Math.min(MAX_INSTALLMENTS, Math.max(2, n + delta)));
           return;
         }
         if (e.key === 'Enter') { e.preventDefault(); setCheckoutStep('valor'); }
@@ -396,7 +429,7 @@ const PDV = () => {
                 <tbody>
                   {cart.map(item => (
                     <tr key={item.id}>
-                      <td className="product-name">{item.name}</td>
+                      <td className="product-name upper">{item.name}</td>
                       <td className="text-center font-bold">{item.quantity}</td>
                       <td className="text-right text-muted">{formatCurrency(item.price)}</td>
                       <td className="text-right font-bold">{formatCurrency(item.price * item.quantity)}</td>
@@ -451,7 +484,7 @@ const PDV = () => {
                         onMouseEnter={() => setActiveIndex(i)}
                       >
                         <div className="suggestion-info">
-                          <span className="suggestion-name">{p.name}</span>
+                          <span className={`suggestion-name ${p.id !== 'avulso' ? 'upper' : ''}`}>{p.name}</span>
                           {p.id !== 'avulso' && <span className="suggestion-barcode">{p.barcode}</span>}
                         </div>
                         {p.id !== 'avulso' && <span className="suggestion-price">{formatCurrency(p.price)}</span>}
@@ -571,7 +604,7 @@ const PDV = () => {
               </div>
               {checkoutStep !== 'pagamento' && (
                 <div className="checkout-sub" style={{ borderBottom: 'none', borderTop: '1px dashed var(--border-strong)', margin: 'var(--s-2) 0 0', padding: 'var(--s-2) 0 0' }}>
-                  <span>Pagamento: <strong>{checkoutStep === 'cartao' ? 'Cartão' : paymentText(saleForPrint)}</strong></span>
+                  <span>Pagamento: <strong>{checkoutStep === 'cartao' ? 'Cartão' : checkoutStep === 'parcelas' ? 'Cartão parcelado' : paymentText(saleForPrint)}</strong></span>
                   {discount > 0 && checkoutStep !== 'valor' && (
                     <span className="text-success">Venda por <strong>{formatCurrency(total)}</strong></span>
                   )}
@@ -604,22 +637,47 @@ const PDV = () => {
             {/* Passo 1b — cartão: débito, crédito à vista ou parcelado */}
             {checkoutStep === 'cartao' && (
               <>
-                <label className="checkout-step-label">Cartão — tipo e parcelas</label>
-                <div className="card-options mt-2">
-                  {CARD_OPTIONS.map(o => (
+                <label className="checkout-step-label">Cartão</label>
+                <div className="payment-toggle mt-2">
+                  {CARD_MODES.map(m => {
+                    const d = cardDetails(m.id, 2);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className={`payment-btn ${cardMode === m.id ? 'active' : ''}`}
+                        onClick={() => chooseCardMode(m.id)}
+                        aria-pressed={cardMode === m.id}
+                      >
+                        <span>{m.label}</span>
+                        <span className="card-option-sub">
+                          {m.id === 'parcelado' ? `2x a ${MAX_INSTALLMENTS}x` : formatCurrency(total)}
+                        </span>
+                        {isAdmin && m.id !== 'parcelado' && <span className="card-option-fee">taxa {String(d.rate).replace('.', ',')}%</span>}
+                        <kbd className="kbd">{m.key.toUpperCase()}</kbd>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* Passo 1c — parcelado: 2x a 18x */}
+            {checkoutStep === 'parcelas' && (
+              <>
+                <label className="checkout-step-label">Número de parcelas</label>
+                <div className="installment-grid mt-2">
+                  {Array.from({ length: MAX_INSTALLMENTS - 1 }, (_, i) => i + 2).map(n => (
                     <button
-                      key={o.id}
+                      key={n}
                       type="button"
-                      className={`card-option ${cardOptionId === o.id ? 'active' : ''}`}
-                      onClick={() => { setCardOptionId(o.id); setCheckoutStep('valor'); }}
-                      aria-pressed={cardOptionId === o.id}
+                      className={`installment-btn ${installments === n ? 'active' : ''}`}
+                      onClick={() => { setInstallments(n); setCheckoutStep('valor'); }}
+                      aria-pressed={installments === n}
                     >
-                      <kbd className="kbd">{o.key.toUpperCase()}</kbd>
-                      <span className="card-option-label">{o.label}</span>
-                      <span className="card-option-sub">
-                        {o.installments > 1 ? `${o.installments}x de ${formatCurrency(round2(total / o.installments))}` : formatCurrency(total)}
-                      </span>
-                      {isAdmin && <span className="card-option-fee">taxa {String(o.rate).replace('.', ',')}%</span>}
+                      <strong>{n}x</strong>
+                      <span>{formatCurrency(round2(total / n))}</span>
+                      {isAdmin && <span className="card-option-fee">{String(CARD_FEES.credito[n]).replace('.', ',')}%</span>}
                     </button>
                   ))}
                 </div>
@@ -659,15 +717,24 @@ const PDV = () => {
             <div className="flex gap-2 justify-end items-center mt-6">
               <span className="checkout-hint">
                 {checkoutStep === 'pagamento' && <><kbd className="kbd">C</kbd>/<kbd className="kbd">P</kbd>/<kbd className="kbd">D</kbd> escolhe · </>}
-                {checkoutStep === 'cartao' && <><kbd className="kbd">D</kbd> débito · <kbd className="kbd">1</kbd>–<kbd className="kbd">4</kbd> crédito · </>}
+                {checkoutStep === 'cartao' && <><kbd className="kbd">D</kbd> débito · <kbd className="kbd">V</kbd> à vista · <kbd className="kbd">P</kbd> parcelado · </>}
+                {checkoutStep === 'parcelas' && <>digite o nº ou use as setas · </>}
                 <kbd className="kbd">Esc</kbd> {checkoutStep === 'pagamento' ? 'fechar' : 'voltar'}
               </span>
               <button type="button" className="btn btn-surface" onClick={stepBack}>
                 {checkoutStep === 'pagamento' ? 'Cancelar' : <><ArrowLeft size={16} /> Voltar</>}
               </button>
 
-              {(checkoutStep === 'pagamento' || checkoutStep === 'cartao') && (
-                <button type="button" className="btn btn-primary" onClick={() => (checkoutStep === 'pagamento' ? goAfterPayment() : setCheckoutStep('valor'))}>
+              {['pagamento', 'cartao', 'parcelas'].includes(checkoutStep) && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    if (checkoutStep === 'pagamento') goAfterPayment();
+                    else if (checkoutStep === 'cartao') chooseCardMode(cardMode);
+                    else setCheckoutStep('valor');
+                  }}
+                >
                   Continuar <kbd className="kbd kbd-on-primary">Enter</kbd>
                 </button>
               )}
@@ -697,7 +764,7 @@ const PDV = () => {
           </div>
           {cart.map(item => (
             <div key={item.id} style={{ marginBottom: '1mm' }}>
-              <div>{item.name}</div>
+              <div className="upper">{item.name}</div>
               <div className="print-row">
                 <span>{item.quantity} x {formatCurrency(item.price)}</span>
                 <span>{formatCurrency(item.price * item.quantity)}</span>

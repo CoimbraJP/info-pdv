@@ -11,7 +11,9 @@ import { buildXmlSpreadsheet, downloadSpreadsheet, parseSpreadsheet } from '../u
  * que o PDV, o cupom e as vendas usam —, e as duas partes ficam guardadas
  * separadas para editar e exportar. Produtos antigos: tudo em `product`.
  */
-const joinName = (product, brandModel) => [product, brandModel].map(s => (s || '').trim()).filter(Boolean).join(' ');
+/** Padrão do estoque: sempre MAIÚSCULO (digitado em minúsculo também). */
+const upper = (s) => String(s || '').trim().toLocaleUpperCase('pt-BR');
+const joinName = (product, brandModel) => [product, brandModel].map(upper).filter(Boolean).join(' ');
 const partsOf = (p) => ({
   product: p.product ?? p.name ?? '',
   brandModel: p.brandModel ?? '',
@@ -62,8 +64,8 @@ const Estoque = () => {
     const newProduct = {
       id: editingProduct ? editingProduct.id : Date.now(),
       name: joinName(formData.product, formData.brandModel),
-      product: formData.product.trim(),
-      brandModel: formData.brandModel.trim(),
+      product: upper(formData.product),
+      brandModel: upper(formData.brandModel),
       barcode: formData.barcode.trim(),
       price: parseFloat(formData.price),
       cost: parseFloat(formData.cost) || 0,
@@ -181,8 +183,8 @@ const Estoque = () => {
             id: Date.now() + idx, // novo ID para imports
             barcode: get('barcode'),
             name: joinName(product, brandModel),
-            product,
-            brandModel,
+            product: upper(product),
+            brandModel: upper(brandModel),
             cost: Number.isFinite(cost) ? cost : 0,
             price,
             stock: parseInt(get('stock'), 10) || 0,
@@ -340,7 +342,7 @@ const Estoque = () => {
                     <td className="text-dim" style={{ fontFamily: 'monospace', fontSize: '0.82rem' }}>
                       {product.barcode || '—'}
                     </td>
-                    <td className="font-medium">{product.name}</td>
+                    <td className="font-medium upper">{product.name}</td>
                     <td className="text-center">{stockBadge(product.stock)}</td>
                     {isAdmin && <td className="text-right">{marginBadge(product.price, product.cost)}</td>}
                     {isAdmin && <td className="text-right text-muted">{product.cost ? formatCurrency(product.cost) : '—'}</td>}
@@ -387,6 +389,7 @@ const Estoque = () => {
                     type="text" className="input" autoFocus required
                     value={formData.product}
                     onChange={e => setFormData({ ...formData, product: e.target.value })}
+                    style={{ textTransform: 'uppercase' }}
                     placeholder="Ex: Notebook"
                   />
                 </div>
@@ -396,6 +399,7 @@ const Estoque = () => {
                     type="text" className="input"
                     value={formData.brandModel}
                     onChange={e => setFormData({ ...formData, brandModel: e.target.value })}
+                    style={{ textTransform: 'uppercase' }}
                     placeholder="Ex: Dell Vostro 3300"
                   />
                 </div>

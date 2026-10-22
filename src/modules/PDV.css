@@ -467,3 +467,23 @@
   color: var(--text-main);
   font-size: 0.82rem;
 }
+
+/* ── Parcelas (2x a 18x) ── */
+.payment-btn .card-option-sub, .payment-btn .card-option-fee { display: block; }
+.installment-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--s-2); }
+.installment-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: var(--s-2) var(--s-1);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  font-family: var(--font-main);
+  cursor: pointer;
+  transition: border-color var(--t-fast), background-color var(--t-fast), color var(--t-fast);
+}
+.installment-btn strong { font-size: 1rem; color: var(--text-main); }
+.installment-btn span { font-size: 0.7rem; }
+.installment-btn:hover { border-color: var(--border-strong); }
+.installment-btn.active { border-color: var(--primary-color); background: var(--primary-subtle); }
+.checkout-modal { max-width: 620px; }
