@@ -2,7 +2,8 @@ import { useState, useRef } from 'react';
 import { Package, Search, Plus, Edit2, Trash2, X, Check, AlertTriangle, Download, Upload } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
 import { formatCurrency } from '../utils/formatters';
-import { parseMoney, toInputMoney } from '../utils/money';
+import { parseMoney } from '../utils/money';
+import { buildXmlSpreadsheet, downloadSpreadsheet, parseSpreadsheet } from '../utils/spreadsheet';
 
 /**
  * Produto = tipo (ex.: "Notebook"); Marca/Modelo = "Dell Vostro 3300".
@@ -107,33 +108,22 @@ const Estoque = () => {
       return;
     }
 
-    // Cabeçalho (o Excel em português abre com acentos graças ao BOM)
     const headers = ['Código de Barras', 'Produto', 'Marca/Modelo', 'Custo (R$)', 'Preço (R$)', 'Estoque'];
-    const clean = (v) => String(v ?? '').replace(/[\t\r\n]+/g, ' ').trim();
-
     const rows = products.map(p => {
       const { product, brandModel } = partsOf(p);
       return [
-        clean(p.barcode),
-        clean(product),
-        clean(brandModel),
-        p.cost ? toInputMoney(p.cost) : '',
-        toInputMoney(p.price),
-        p.stock || 0,
+        String(p.barcode || ''),
+        product,
+        brandModel,
+        Number(p.cost) || 0,
+        Number(p.price) || 0,
+        Number(p.stock) || 0,
       ];
     });
 
-    const csvContent = '\uFEFF' + [
-      headers.join('\t'),
-      ...rows.map(row => row.join('\t')),
-    ].join('\r\n');
-
-    // Download
-    const blob = new Blob([csvContent], { type: 'text/tab-separated-values;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `estoque-${new Date().toISOString().slice(0, 10)}.xls`;
-    link.click();
+    // Planilha XML 2003: o Excel abre já em colunas; código de barras como texto
+    const xml = buildXmlSpreadsheet(headers, rows, { sheetName: 'Estoque', textCols: [0], moneyCols: [3, 4] });
+    downloadSpreadsheet(xml, `estoque-${new Date().toISOString().slice(0, 10)}.xls`);
   };
 
   // Importar produtos de XLS
@@ -147,14 +137,14 @@ const Estoque = () => {
         const text = event.target?.result;
         if (typeof text !== 'string') return;
 
-        const lines = text.split('\n').filter(l => l.trim());
-        if (lines.length < 2) {
+        const table = parseSpreadsheet(text).filter(r => r.some(v => v !== ''));
+        if (table.length < 2) {
           alert('Arquivo vazio ou inválido');
           return;
         }
 
         // Colunas pelo cabeçalho: aceita o modelo novo (com Marca/Modelo) e o antigo
-        const header = lines[0].replace(/^\uFEFF/, '').split('\t');
+        const header = table[0];
         let col = {
           barcode: findCol(header, 'codigo'),
           product: findCol(header, 'produto'),
@@ -167,12 +157,11 @@ const Estoque = () => {
           col = { barcode: 0, product: 1, brandModel: -1, cost: 2, price: 3, stock: 4 }; // sem cabeçalho reconhecido
         }
 
-        const rows = lines.slice(1);
+        const rows = table.slice(1);
         const imported = [];
         const errors = [];
 
-        rows.forEach((line, idx) => {
-          const cells = line.split('\t').map(v => v.replace(/\r$/, '').trim());
+        rows.forEach((cells, idx) => {
           const get = (k) => (col[k] >= 0 ? cells[col[k]] ?? '' : '');
           const product = get('product');
           const brandModel = get('brandModel');
