@@ -437,3 +437,33 @@
   color: var(--status-success);
 }
 .text-main { color: var(--text-main); }
+
+/* ── Janela do cartão ── */
+.card-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: var(--s-2); }
+.card-option {
+  position: relative;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: var(--s-3);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  font-family: var(--font-main);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--t-fast), background-color var(--t-fast), color var(--t-fast);
+}
+.card-option:hover { border-color: var(--border-strong); color: var(--text-main); }
+.card-option.active { border-color: var(--primary-color); background: var(--primary-subtle); color: var(--text-main); }
+.card-option .kbd { position: absolute; top: 6px; right: 6px; }
+.card-option-label { font-weight: 700; font-size: 0.9rem; }
+.card-option-sub { font-size: 0.78rem; color: var(--text-muted); }
+.card-option-fee { font-size: 0.7rem; color: var(--text-dim); }
+.card-summary {
+  margin: var(--s-2) 0 0;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--radius-sm);
+  background: var(--status-info-bg);
+  color: var(--text-main);
+  font-size: 0.82rem;
+}

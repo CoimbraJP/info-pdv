@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Receipt, Printer, Calendar, TrendingUp, ChevronRight } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
 import { formatCurrency, formatDateTime, formatDate, parseDate } from '../utils/formatters';
-import { paymentLabel, paymentBadge } from '../constants/payment';
+import { paymentText, paymentBadge } from '../constants/payment';
 import { ReceiptHeader, ReceiptSite } from '../components/ReceiptBrand';
 import './OS.css';
 
@@ -193,7 +193,7 @@ const Vendas = () => {
                         </td>
                         <td>
                           <span className={`badge ${paymentBadge(sale.paymentMethod)}`}>
-                            {paymentLabel(sale.paymentMethod)}
+                            {paymentText(sale)}
                           </span>
                         </td>
                         <td className="text-right font-bold text-primary">{formatCurrency(sale.total)}</td>
@@ -234,6 +234,11 @@ const Vendas = () => {
                               </table>
 
                               <div className="flex justify-end gap-6 mt-3 pt-3" style={{ borderTop: '1px solid var(--border-color)' }}>
+                                {isAdmin && sale.feeAmount > 0 && (
+                                  <span className="text-muted text-sm">
+                                    Taxa cartão ({String(sale.feeRate).replace('.', ',')}%): <strong>− {formatCurrency(sale.feeAmount)}</strong>
+                                  </span>
+                                )}
                                 {sale.discount > 0 && (
                                   <span className="text-success text-sm">
                                     Desconto: <strong>− {formatCurrency(sale.discount)}</strong>
@@ -311,8 +316,14 @@ const Vendas = () => {
             </div>
             <div className="print-row">
               <span>Pagamento</span>
-              <span>{paymentLabel(selectedSale.paymentMethod)}</span>
+              <span>{paymentText(selectedSale)}</span>
             </div>
+            {selectedSale.installments > 1 && (
+              <div className="print-row">
+                <span>Parcelas</span>
+                <span>{selectedSale.installments}x de {formatCurrency(selectedSale.total / selectedSale.installments)}</span>
+              </div>
+            )}
             {selectedSale.paymentMethod === 'dinheiro' && selectedSale.amountReceived > selectedSale.total && (
               <>
                 <div className="print-row">

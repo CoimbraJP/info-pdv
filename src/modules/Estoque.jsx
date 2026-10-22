@@ -2,6 +2,23 @@ import { useState, useRef } from 'react';
 import { Package, Search, Plus, Edit2, Trash2, X, Check, AlertTriangle, Download, Upload } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
 import { formatCurrency } from '../utils/formatters';
+import { parseMoney, toInputMoney } from '../utils/money';
+
+/**
+ * Produto = tipo (ex.: "Notebook"); Marca/Modelo = "Dell Vostro 3300".
+ * `name` continua sendo o nome COMPLETO ("Notebook Dell Vostro 3300") — é o
+ * que o PDV, o cupom e as vendas usam —, e as duas partes ficam guardadas
+ * separadas para editar e exportar. Produtos antigos: tudo em `product`.
+ */
+const joinName = (product, brandModel) => [product, brandModel].map(s => (s || '').trim()).filter(Boolean).join(' ');
+const partsOf = (p) => ({
+  product: p.product ?? p.name ?? '',
+  brandModel: p.brandModel ?? '',
+});
+
+/** Acha a coluna da planilha pelo nome do cabeçalho (sem acento/caixa). */
+const norm = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+const findCol = (header, ...keys) => header.findIndex(h => keys.some(k => norm(h).startsWith(k)));
 import './OS.css';
 
 const Estoque = () => {
@@ -10,7 +27,7 @@ const Estoque = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
 
-  const initialFormState = { name: '', barcode: '', price: '', cost: '', stock: '' };
+  const initialFormState = { product: '', brandModel: '', barcode: '', price: '', cost: '', stock: '' };
   const [formData, setFormData] = useState(initialFormState);
 
   const filteredProducts = products.filter(p =>
@@ -23,7 +40,7 @@ const Estoque = () => {
   const handleOpenModal = (product = null) => {
     if (product) {
       setEditingProduct(product);
-      setFormData({ name: product.name, barcode: product.barcode || '', price: product.price, cost: product.cost ?? '', stock: product.stock });
+      setFormData({ ...partsOf(product), barcode: product.barcode || '', price: product.price, cost: product.cost ?? '', stock: product.stock });
     } else {
       setEditingProduct(null);
       setFormData(initialFormState);
@@ -39,11 +56,13 @@ const Estoque = () => {
 
   const handleSave = (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.price) return;
+    if (!formData.product.trim() || !formData.price) return;
 
     const newProduct = {
       id: editingProduct ? editingProduct.id : Date.now(),
-      name: formData.name.trim(),
+      name: joinName(formData.product, formData.brandModel),
+      product: formData.product.trim(),
+      brandModel: formData.brandModel.trim(),
       barcode: formData.barcode.trim(),
       price: parseFloat(formData.price),
       cost: parseFloat(formData.cost) || 0,
@@ -88,23 +107,26 @@ const Estoque = () => {
       return;
     }
 
-    // Cabeçalho
-    const headers = ['Código de Barras', 'Produto', 'Custo (R$)', 'Preço (R$)', 'Estoque'];
+    // Cabeçalho (o Excel em português abre com acentos graças ao BOM)
+    const headers = ['Código de Barras', 'Produto', 'Marca/Modelo', 'Custo (R$)', 'Preço (R$)', 'Estoque'];
+    const clean = (v) => String(v ?? '').replace(/[\t\r\n]+/g, ' ').trim();
 
-    // Dados
-    const rows = products.map(p => [
-      p.barcode || '',
-      p.name,
-      p.cost || '',
-      p.price,
-      p.stock || 0,
-    ]);
+    const rows = products.map(p => {
+      const { product, brandModel } = partsOf(p);
+      return [
+        clean(p.barcode),
+        clean(product),
+        clean(brandModel),
+        p.cost ? toInputMoney(p.cost) : '',
+        toInputMoney(p.price),
+        p.stock || 0,
+      ];
+    });
 
-    // Monta CSV (Excel abre sem problemas)
-    const csvContent = [
+    const csvContent = '\uFEFF' + [
       headers.join('\t'),
       ...rows.map(row => row.join('\t')),
-    ].join('\n');
+    ].join('\r\n');
 
     // Download
     const blob = new Blob([csvContent], { type: 'text/tab-separated-values;charset=utf-8;' });
@@ -131,31 +153,50 @@ const Estoque = () => {
           return;
         }
 
-        // Pula o cabeçalho
+        // Colunas pelo cabeçalho: aceita o modelo novo (com Marca/Modelo) e o antigo
+        const header = lines[0].replace(/^\uFEFF/, '').split('\t');
+        let col = {
+          barcode: findCol(header, 'codigo'),
+          product: findCol(header, 'produto'),
+          brandModel: findCol(header, 'marca', 'modelo'),
+          cost: findCol(header, 'custo'),
+          price: findCol(header, 'preco', 'valor'),
+          stock: findCol(header, 'estoque', 'qtd', 'quantidade'),
+        };
+        if (col.product < 0 || col.price < 0) {
+          col = { barcode: 0, product: 1, brandModel: -1, cost: 2, price: 3, stock: 4 }; // sem cabeçalho reconhecido
+        }
+
         const rows = lines.slice(1);
         const imported = [];
         const errors = [];
 
         rows.forEach((line, idx) => {
-          const [barcode, name, cost, price, stock] = line.split('\t').map(v => v.trim());
+          const cells = line.split('\t').map(v => v.replace(/\r$/, '').trim());
+          const get = (k) => (col[k] >= 0 ? cells[col[k]] ?? '' : '');
+          const product = get('product');
+          const brandModel = get('brandModel');
+          const price = parseMoney(get('price'));
 
-          // Validação básica
-          if (!name) {
-            errors.push(`Linha ${idx + 2}: nome é obrigatório`);
+          if (!product && !brandModel) {
+            errors.push(`Linha ${idx + 2}: produto é obrigatório`);
             return;
           }
-          if (!price || isNaN(parseFloat(price))) {
+          if (!Number.isFinite(price) || price <= 0) {
             errors.push(`Linha ${idx + 2}: preço inválido`);
             return;
           }
 
+          const cost = parseMoney(get('cost'));
           imported.push({
             id: Date.now() + idx, // novo ID para imports
-            barcode: barcode || '',
-            name: name.trim(),
-            cost: parseFloat(cost) || 0,
-            price: parseFloat(price),
-            stock: parseInt(stock) || 0,
+            barcode: get('barcode'),
+            name: joinName(product, brandModel),
+            product,
+            brandModel,
+            cost: Number.isFinite(cost) ? cost : 0,
+            price,
+            stock: parseInt(get('stock'), 10) || 0,
           });
         });
 
@@ -350,15 +391,31 @@ const Estoque = () => {
             </div>
 
             <form onSubmit={handleSave}>
-              <div className="form-group mb-4">
-                <label>Nome do Produto *</label>
-                <input
-                  type="text" className="input" autoFocus required
-                  value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ex: Teclado Mecânico Redragon"
-                />
+              <div className="flex gap-4 mb-4">
+                <div className="form-group" style={{ flex: '0 0 38%' }}>
+                  <label>Produto *</label>
+                  <input
+                    type="text" className="input" autoFocus required
+                    value={formData.product}
+                    onChange={e => setFormData({ ...formData, product: e.target.value })}
+                    placeholder="Ex: Notebook"
+                  />
+                </div>
+                <div className="form-group flex-1">
+                  <label>Marca/Modelo</label>
+                  <input
+                    type="text" className="input"
+                    value={formData.brandModel}
+                    onChange={e => setFormData({ ...formData, brandModel: e.target.value })}
+                    placeholder="Ex: Dell Vostro 3300"
+                  />
+                </div>
               </div>
+              {(formData.product || formData.brandModel) && (
+                <p className="text-sm text-muted mb-4" style={{ marginTop: '-8px' }}>
+                  Aparece como: <strong className="text-main">{joinName(formData.product, formData.brandModel)}</strong>
+                </p>
+              )}
 
               <div className="form-group mb-4">
                 <label>Código de Barras</label>

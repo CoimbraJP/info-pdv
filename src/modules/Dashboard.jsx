@@ -137,6 +137,7 @@ const Dashboard = () => {
     const productProfit = salesInPeriod.reduce((acc, s) => (
       acc + (s.items || []).reduce((a, it) => a + ((it.price || 0) - (it.cost || 0)) * (it.quantity || 0), 0)
         - (s.discount || 0) // desconto da venda sai do lucro
+        - (s.feeAmount || 0) // taxa da maquininha também
     ), 0);
 
     const serviceRevenue = osInPeriod
@@ -151,6 +152,7 @@ const Dashboard = () => {
     const byCard = salesInPeriod.filter((s) => s.paymentMethod === 'cartao').reduce((a, s) => a + s.total, 0);
     const byCash = salesInPeriod.filter((s) => s.paymentMethod === 'dinheiro').reduce((a, s) => a + s.total, 0);
     const byPix = salesInPeriod.filter((s) => s.paymentMethod === 'pix').reduce((a, s) => a + s.total, 0);
+    const cardFees = salesInPeriod.reduce((a, s) => a + (s.feeAmount || 0), 0);
 
     // Mais vendidos (por quantidade)
     const map = new Map();
@@ -175,7 +177,7 @@ const Dashboard = () => {
 
     return {
       productRevenue, serviceRevenue, totalRevenue, totalProfit, productProfit,
-      numSales, ticket, byCard, byCash, byPix, topProducts,
+      numSales, ticket, byCard, byCash, byPix, cardFees, topProducts,
       osEmAndamento, osMarcondes, contasReceber, estoqueCritico,
       margin: totalRevenue ? (totalProfit / totalRevenue) * 100 : 0,
       buckets: buildBuckets(period, sales),
@@ -341,6 +343,9 @@ const Dashboard = () => {
                 <span><CreditCard size={15} className="text-info" /> Cartão</span>
                 <strong>{formatCurrency(m.byCard)}</strong>
               </div>
+              {m.cardFees > 0 && (
+                <span className="text-xs text-dim">Taxas da maquininha: − {formatCurrency(m.cardFees)} (já descontadas do lucro)</span>
+              )}
               <div className="pay-bar"><div className="pay-fill pay-card" style={{ transform: `scaleX(${m.byCard / payMax})` }} /></div>
             </div>
             <div className="pay-row">
