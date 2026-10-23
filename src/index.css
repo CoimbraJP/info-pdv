@@ -1019,3 +1019,18 @@ input, select, textarea {
 
 /* Padrão do estoque: nomes de produto em maiúsculo */
 .upper { text-transform: uppercase; }
+
+/* ── Aviso de versão nova ── */
+.update-banner {
+  position: fixed; left: 50%; bottom: var(--s-4); transform: translateX(-50%);
+  z-index: 2000;
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4);
+  background: var(--surface-color);
+  border: 1px solid var(--primary-color);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-main); font-size: 0.85rem;
+  animation: fadeIn 0.25s ease-out;
+}
+.update-banner svg { color: var(--primary-color); }

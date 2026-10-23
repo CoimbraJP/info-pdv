@@ -7,7 +7,16 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // Service worker novo assume na hora (skipWaiting/clientsClaim). O app não
+      // recarrega sozinho (o carrinho está em memória): src/components/UpdateBanner.jsx
+      // registra o SW e mostra "Nova versão disponível — Atualizar".
       registerType: 'autoUpdate',
+      injectRegister: false,
+      workbox: {
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true, // a aba aberta passa para o SW novo → dispara o aviso
+      },
       devOptions: {
         enabled: true
       },

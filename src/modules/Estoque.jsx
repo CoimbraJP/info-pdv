@@ -105,10 +105,7 @@ const Estoque = () => {
 
   // Exportar produtos para XLS via CSV (Excel lê nativamente)
   const handleExportXLS = () => {
-    if (products.length === 0) {
-      alert('Nenhum produto para exportar');
-      return;
-    }
+    // Estoque vazio (ex.: loja nova): baixa a planilha modelo só com o cabeçalho
 
     const headers = ['Código de Barras', 'Produto', 'Marca/Modelo', 'Custo (R$)', 'Preço (R$)', 'Estoque'];
     const rows = products.map(p => {
@@ -125,7 +122,7 @@ const Estoque = () => {
 
     // Planilha XML 2003: o Excel abre já em colunas; código de barras como texto
     const xml = buildXmlSpreadsheet(headers, rows, { sheetName: 'Estoque', textCols: [0], moneyCols: [3, 4] });
-    downloadSpreadsheet(xml, `estoque-${new Date().toISOString().slice(0, 10)}.xls`);
+    downloadSpreadsheet(xml, products.length ? `estoque-${new Date().toISOString().slice(0, 10)}.xls` : 'estoque-modelo.xls');
   };
 
   // Importar produtos de XLS

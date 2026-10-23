@@ -10,6 +10,7 @@ import Vendas from './modules/Vendas';
 import { GlobalProvider, useGlobalState } from './context/GlobalState';
 import { StoreProvider } from './context/StoreContext';
 import { canAccessModule } from './utils/auth';
+import UpdateBanner from './components/UpdateBanner';
 import './App.css';
 import './modules/PrintOS.css';
 
@@ -48,11 +49,14 @@ function AppShell() {
 
 function App() {
   return (
-    <StoreProvider>
-      <GlobalProvider>
-        <AppShell />
-      </GlobalProvider>
-    </StoreProvider>
+    <>
+      <UpdateBanner />
+      <StoreProvider>
+        <GlobalProvider>
+          <AppShell />
+        </GlobalProvider>
+      </StoreProvider>
+    </>
   );
 }
 
