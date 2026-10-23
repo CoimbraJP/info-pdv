@@ -21,38 +21,78 @@ async function readBody(req) {
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return {}; }
 }
 
+/**
+ * Janela de sobreposição do pull: devolvemos o cursor um pouco "para trás"
+ * para não perder gravações de outro terminal que terminaram enquanto esta
+ * requisição lia o banco. Reenviar registros já recebidos é inofensivo
+ * (o cliente mescla por id + updatedAt).
+ */
+const OVERLAP_MS = 2 * 60 * 1000;
+
+/**
+ * Grava em lote (2 idas ao banco por coleção, qualquer quantidade): lê o
+ * updatedAt atual dos ids recebidos e regrava só os que são iguais ou mais
+ * novos (last-write-wins). Antes era 1 consulta + 1 gravação POR registro,
+ * o que estourava o tempo limite da Vercel em importações grandes.
+ */
 async function upsertAll(Model, records, serverTime) {
-  for (const r of records || []) {
-    if (r == null || r.id == null) continue;
+  const list = (records || []).filter((r) => r != null && r.id != null);
+  if (!list.length) return;
+  const ids = list.map((r) => String(r.id));
+  const existing = await Model.find({ id: { $in: ids } }, { id: 1, updatedAt: 1, _id: 0 }).lean();
+  const current = new Map(existing.map((d) => [d.id, d.updatedAt || 0]));
+
+  const ops = [];
+  for (const r of list) {
     const id = String(r.id);
-    const updatedAt = r.updatedAt || serverTime;
-    const existing = await Model.findOne({ id }).lean();
-    if (!existing || updatedAt >= (existing.updatedAt || 0)) {
-      await Model.updateOne(
-        { id },
-        { $set: { id, updatedAt, deleted: false, data: r } },
-        { upsert: true }
-      );
-    }
+    const updatedAt = Number(r.updatedAt) || serverTime;
+    if (current.has(id) && updatedAt < current.get(id)) continue; // servidor tem versão mais nova
+    ops.push({
+      updateOne: {
+        filter: { id },
+        update: { $set: { id, updatedAt, syncedAt: serverTime, deleted: false, data: r } },
+        upsert: true,
+      },
+    });
   }
+  if (ops.length) await Model.bulkWrite(ops, { ordered: false });
 }
 
 async function applyTombstones(MODELS, tombstones, serverTime) {
+  const byModel = new Map();
   for (const t of tombstones || []) {
     const Model = MODELS[t.store];
     if (!Model || t.id == null) continue;
-    const id = String(t.id);
-    const deletedAt = t.deletedAt || serverTime;
-    const existing = await Model.findOne({ id }).lean();
-    if (!existing || deletedAt >= (existing.updatedAt || 0)) {
-      await Model.updateOne(
-        { id },
-        { $set: { id, updatedAt: deletedAt, deleted: true } },
-        { upsert: true }
-      );
+    if (!byModel.has(Model)) byModel.set(Model, []);
+    byModel.get(Model).push(t);
+  }
+  for (const [Model, list] of byModel) {
+    const existing = await Model.find({ id: { $in: list.map((t) => String(t.id)) } }, { id: 1, updatedAt: 1, _id: 0 }).lean();
+    const current = new Map(existing.map((d) => [d.id, d.updatedAt || 0]));
+    const ops = [];
+    for (const t of list) {
+      const id = String(t.id);
+      const deletedAt = Number(t.deletedAt) || serverTime;
+      if (current.has(id) && deletedAt < current.get(id)) continue;
+      ops.push({
+        updateOne: {
+          filter: { id },
+          update: { $set: { id, updatedAt: deletedAt, syncedAt: serverTime, deleted: true } },
+          upsert: true,
+        },
+      });
     }
+    if (ops.length) await Model.bulkWrite(ops, { ordered: false });
   }
 }
+
+/** Mudou desde o cursor (registros antigos, sem syncedAt, usam o updatedAt). */
+const changedSince = (cursor) => ({
+  $or: [
+    { syncedAt: { $gt: cursor } },
+    { syncedAt: { $exists: false }, updatedAt: { $gt: cursor } },
+  ],
+});
 
 export default async function handler(req, res) {
   // CORS: em produção (Vercel) front e API estão no mesmo domínio e não é
@@ -85,8 +125,8 @@ export default async function handler(req, res) {
   try {
     await connectDB();
     // Cada loja grava e lê no próprio banco
-    const { Product, Sale, ServiceOrder, Settings, MODELS } = modelsFor(store.db);
-    const STORES = { products: Product, sales: Sale, serviceOrders: ServiceOrder };
+    const { Product, Sale, ServiceOrder, Settings, Etiqueta, MODELS } = modelsFor(store.db);
+    const STORES = { products: Product, sales: Sale, serviceOrders: ServiceOrder, etiquetas: Etiqueta };
 
     const body = await readBody(req);
     const {
@@ -94,6 +134,7 @@ export default async function handler(req, res) {
       products = [],
       sales = [],
       serviceOrders = [],
+      etiquetas = [],
       settings = null,
       tombstones = [],
     } = body;
@@ -104,13 +145,14 @@ export default async function handler(req, res) {
     await upsertAll(Product, products, serverTime);
     await upsertAll(Sale, sales, serverTime);
     await upsertAll(ServiceOrder, serviceOrders, serverTime);
+    await upsertAll(Etiqueta, etiquetas, serverTime);
     if (settings) {
       const updatedAt = settings.updatedAt || serverTime;
       const existing = await Settings.findOne({ id: 'singleton' }).lean();
       if (!existing || updatedAt >= (existing.updatedAt || 0)) {
         await Settings.updateOne(
           { id: 'singleton' },
-          { $set: { id: 'singleton', updatedAt, deleted: false, data: settings } },
+          { $set: { id: 'singleton', updatedAt, syncedAt: serverTime, deleted: false, data: settings } },
           { upsert: true }
         );
       }
@@ -118,19 +160,22 @@ export default async function handler(req, res) {
     await applyTombstones(MODELS, tombstones, serverTime);
 
     // ── PULL: devolve o que mudou no servidor desde lastSyncAt ──
-    const out = { serverTime, tombstones: [] };
+    // syncCursor: o cliente novo guarda este valor (hora do servidor, com
+    // folga); clientes antigos continuam usando serverTime.
+    const out = { serverTime, syncCursor: serverTime - OVERLAP_MS, tombstones: [] };
+    const cursor = Number(lastSyncAt) || 0;
 
-    for (const [store, Model] of Object.entries(STORES)) {
-      const docs = await Model.find({ updatedAt: { $gt: lastSyncAt }, deleted: { $ne: true } }).lean();
-      out[store] = docs.map((d) => d.data);
+    for (const [storeName, Model] of Object.entries(STORES)) {
+      const docs = await Model.find({ ...changedSince(cursor), deleted: { $ne: true } }).lean();
+      out[storeName] = docs.map((d) => d.data);
 
-      const removed = await Model.find({ updatedAt: { $gt: lastSyncAt }, deleted: true }).lean();
-      for (const d of removed) out.tombstones.push({ store, id: d.id });
+      const removed = await Model.find({ ...changedSince(cursor), deleted: true }, { id: 1, _id: 0 }).lean();
+      for (const d of removed) out.tombstones.push({ store: storeName, id: d.id });
     }
 
     const settingsDoc = await Settings.findOne({
       id: 'singleton',
-      updatedAt: { $gt: lastSyncAt },
+      ...changedSince(cursor),
       deleted: { $ne: true },
     }).lean();
     out.settings = settingsDoc ? settingsDoc.data : null;

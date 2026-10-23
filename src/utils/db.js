@@ -29,6 +29,7 @@ export const KEYS = {
   settings: 'infocentro_settings',
   tombstones: 'infocentro_tombstones',
   meta: 'infocentro_meta',
+  etiquetas: 'etiquetas', // chave que já existia — etiquetas salvas são preservadas
 };
 
 /** Nome lógico de cada coleção usado no sincronizador/tombstones. */
@@ -37,7 +38,20 @@ export const STORE = {
   os: 'serviceOrders',
   sales: 'sales',
   settings: 'settings',
+  etiquetas: 'etiquetas',
 };
+
+/**
+ * Pede ao navegador para NÃO apagar os dados locais quando faltar espaço
+ * (sem isso o IndexedDB é "best effort" e pode ser limpo automaticamente).
+ */
+export async function requestPersistentStorage() {
+  try {
+    if (navigator.storage?.persisted && !(await navigator.storage.persisted())) {
+      await navigator.storage.persist?.();
+    }
+  } catch { /* navegador sem suporte: segue normal */ }
+}
 
 export async function dbGet(key, fallback = null) {
   try {

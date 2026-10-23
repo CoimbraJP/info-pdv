@@ -1,6 +1,6 @@
 import { createContext, useState, useEffect, useContext, useRef, useCallback } from 'react';
 import {
-  KEYS, STORE, dbGet, dbSet, migrateFromLocalStorage, diffStamp, mergeRemote,
+  KEYS, STORE, dbGet, dbSet, migrateFromLocalStorage, diffStamp, mergeRemote, requestPersistentStorage,
 } from '../utils/db';
 import { pushPull, isOnline } from '../utils/sync';
 import { buildBackupPayload, downloadBackup } from '../utils/backup';
@@ -103,14 +103,8 @@ export const GlobalProvider = ({ children }) => {
   const setProducts = (updater) => writeCollection(KEYS.products, STORE.products, productsRef, setProductsState, updater);
   const setOsList = (updater) => writeCollection(KEYS.os, STORE.os, osRef, setOsListState, updater);
   const setSales = (updater) => writeCollection(KEYS.sales, STORE.sales, salesRef, setSalesState, updater);
-  const setEtiquetas = (updater) => {
-    const prev = etiquetasRef.current;
-    const next = typeof updater === 'function' ? updater(prev) : updater;
-    etiquetasRef.current = next;
-    setEtiquetasState(next);
-    dbSet('etiquetas', next);
-    scheduleSync();
-  };
+  // Etiquetas agora sincronizam como as demais coleções (antes ficavam só neste computador)
+  const setEtiquetas = (updater) => writeCollection(KEYS.etiquetas, STORE.etiquetas, etiquetasRef, setEtiquetasState, updater);
 
   const setSettings = (updater) => {
     const prev = settingsRef.current;
@@ -253,30 +247,46 @@ export const GlobalProvider = ({ children }) => {
     dbSet(key, value);
   };
 
+  const syncRunningRef = useRef(false);
+  const syncAgainRef = useRef(false);
+
+  /*
+   * Sincronização em duas direções, cada uma com o relógio certo:
+   *  - ENVIO: tudo que mudou desde o último envio, pelo relógio DESTE
+   *    computador (lastPushAt). Antes o filtro usava a hora do servidor — se o
+   *    relógio do PC estivesse atrasado, alterações nunca eram enviadas.
+   *  - RECEBIMENTO: pelo cursor devolvido pelo servidor (hora do servidor).
+   * Na primeira execução desta versão, lastPushAt = 0 → reenvia tudo uma vez,
+   * recuperando qualquer registro que tenha ficado para trás.
+   */
   const runSync = useCallback(async () => {
     if (!isOnline()) {
       setSyncStatus('offline');
       return;
     }
+    if (syncRunningRef.current) { syncAgainRef.current = true; return; }
+    syncRunningRef.current = true;
     setSyncStatus('syncing');
     try {
-      const since = metaRef.current.lastSyncAt || 0;
-      const changed = (arr) => (arr || []).filter((r) => (r.updatedAt || 0) > since);
+      const pushStartedAt = Date.now();
+      const pushedSince = metaRef.current.lastPushAt || 0;
+      const changed = (arr) => (arr || []).filter((r) => (r.updatedAt || 0) > pushedSince);
 
       const payload = {
-        lastSyncAt: since,
+        lastSyncAt: metaRef.current.lastSyncAt || 0,
         products: changed(productsRef.current),
         sales: changed(salesRef.current),
         serviceOrders: changed(osRef.current),
-        settings: (settingsRef.current?.updatedAt || 0) > since ? settingsRef.current : null,
-        tombstones: (tombsRef.current || []).filter((t) => (t.deletedAt || 0) > since),
+        etiquetas: changed(etiquetasRef.current),
+        settings: (settingsRef.current?.updatedAt || 0) > pushedSince ? settingsRef.current : null,
+        tombstones: (tombsRef.current || []).filter((t) => (t.deletedAt || 0) > pushedSince),
       };
 
       const resp = await pushPull(payload, { storeId: storeIdRef.current });
-      const serverTime = resp.serverTime || Date.now();
+      const cursor = resp.syncCursor ?? resp.serverTime ?? 0;
 
       // Agrupa tombstones remotos por coleção
-      const removed = { products: [], sales: [], serviceOrders: [] };
+      const removed = { products: [], sales: [], serviceOrders: [], etiquetas: [] };
       for (const t of resp.tombstones || []) {
         if (removed[t.store]) removed[t.store].push(String(t.id));
       }
@@ -284,6 +294,7 @@ export const GlobalProvider = ({ children }) => {
       applyCollection(KEYS.products, productsRef, setProductsState, mergeRemote(productsRef.current, resp.products || [], removed.products));
       applyCollection(KEYS.sales, salesRef, setSalesState, mergeRemote(salesRef.current, resp.sales || [], removed.sales));
       applyCollection(KEYS.os, osRef, setOsListState, mergeRemote(osRef.current, resp.serviceOrders || [], removed.serviceOrders));
+      applyCollection(KEYS.etiquetas, etiquetasRef, setEtiquetasState, mergeRemote(etiquetasRef.current, resp.etiquetas || [], removed.etiquetas));
 
       if (resp.settings && (resp.settings.updatedAt || 0) > (settingsRef.current?.updatedAt || 0)) {
         settingsRef.current = resp.settings;
@@ -291,20 +302,26 @@ export const GlobalProvider = ({ children }) => {
         dbSet(KEYS.settings, resp.settings);
       }
 
-      // Limpa tombstones já confirmados pelo servidor
-      const remainingTombs = (tombsRef.current || []).filter((t) => (t.deletedAt || 0) > serverTime);
+      // Tombstones enviados agora já estão no servidor; ficam só os criados durante o envio
+      const remainingTombs = (tombsRef.current || []).filter((t) => (t.deletedAt || 0) >= pushStartedAt);
       tombsRef.current = remainingTombs;
       dbSet(KEYS.tombstones, remainingTombs);
 
-      const newMeta = { ...metaRef.current, lastSyncAt: serverTime };
+      const newMeta = { ...metaRef.current, lastSyncAt: cursor, lastPushAt: pushStartedAt - 1 };
       metaRef.current = newMeta;
-      setLastSyncAt(serverTime);
+      setLastSyncAt(resp.serverTime || Date.now());
       dbSet(KEYS.meta, newMeta);
 
       setSyncStatus('synced');
     } catch (err) {
       console.warn('[sync] falhou:', err.message);
       setSyncStatus(isOnline() ? 'error' : 'offline');
+    } finally {
+      syncRunningRef.current = false;
+      if (syncAgainRef.current) {
+        syncAgainRef.current = false;
+        setTimeout(() => runSyncRef.current(), 300);
+      }
     }
   }, []);
 
@@ -318,7 +335,7 @@ export const GlobalProvider = ({ children }) => {
       const store = storeRef.current;
       if (store.master) await migrateFromLocalStorage(); // dados antigos são da Info Centro
       const [p, o, s, e, st, tomb, meta] = await Promise.all([
-        dbGet(KEYS.products), dbGet(KEYS.os), dbGet(KEYS.sales), dbGet('etiquetas', []),
+        dbGet(KEYS.products), dbGet(KEYS.os), dbGet(KEYS.sales), dbGet(KEYS.etiquetas),
         dbGet(KEYS.settings), dbGet(KEYS.tombstones, []), dbGet(KEYS.meta, { lastSyncAt: 0 }),
       ]);
       if (!mounted) return;
@@ -330,22 +347,21 @@ export const GlobalProvider = ({ children }) => {
           setState(stamped);
           dbSet(key, stamped);
         } else {
-          ref.current = stored;
-          setState(stored);
+          // Registros sem updatedAt (ex.: etiquetas antigas) nunca seriam enviados
+          const now = Date.now();
+          const missing = stored.some((r) => !r.updatedAt);
+          const fixed = missing ? stored.map((r) => (r.updatedAt ? r : { ...r, updatedAt: now })) : stored;
+          ref.current = fixed;
+          setState(fixed);
+          if (missing) dbSet(key, fixed);
         }
       };
 
       initCollection(KEYS.products, productsRef, setProductsState, p, store.master ? defaultProducts : []);
       initCollection(KEYS.os, osRef, setOsListState, o, defaultOS);
       initCollection(KEYS.sales, salesRef, setSalesState, s, []);
-      if (e == null) {
-        etiquetasRef.current = defaultEtiquetas;
-        setEtiquetasState(defaultEtiquetas);
-        dbSet('etiquetas', defaultEtiquetas);
-      } else {
-        etiquetasRef.current = e;
-        setEtiquetasState(e);
-      }
+      initCollection(KEYS.etiquetas, etiquetasRef, setEtiquetasState, e, defaultEtiquetas);
+      requestPersistentStorage();
 
       const storeDefaults = store.master
         ? defaultSettings
@@ -375,6 +391,7 @@ export const GlobalProvider = ({ children }) => {
             osList: osRef.current,
             sales: salesRef.current,
             settings: settingsRef.current,
+            etiquetas: etiquetasRef.current,
             storeId: store.id,
           }), { auto: true });
         } catch (err) {

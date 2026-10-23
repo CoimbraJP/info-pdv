@@ -16,6 +16,9 @@ const makeSchema = () =>
     {
       id: { type: String, required: true, unique: true, index: true },
       updatedAt: { type: Number, default: 0, index: true },
+      // Hora do SERVIDOR em que o registro chegou: o pull usa este campo, e não o
+      // updatedAt (que vem do relógio de cada computador e pode estar errado).
+      syncedAt: { type: Number, index: true },
       deleted: { type: Boolean, default: false },
       data: { type: mongoose.Schema.Types.Mixed, default: {} },
     },
@@ -28,6 +31,7 @@ const COLLECTIONS = {
   ServiceOrder: 'serviceorders',
   Settings: 'settings',
   System: 'system',
+  Etiqueta: 'etiquetas',
 };
 
 const bind = (conn) => {
@@ -40,6 +44,7 @@ const bind = (conn) => {
     sales: m.Sale,
     serviceOrders: m.ServiceOrder,
     settings: m.Settings,
+    etiquetas: m.Etiqueta,
   };
   return m;
 };

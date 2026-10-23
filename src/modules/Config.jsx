@@ -175,6 +175,7 @@ const Config = () => {
     products, setProducts,
     osList, setOsList,
     sales, setSales,
+    etiquetas, setEtiquetas,
     syncNow,
     changeAdminPassword,
     store, system, setStoreCredentials,
@@ -241,7 +242,7 @@ const Config = () => {
   };
 
   const handleExport = () => {
-    downloadBackup(buildBackupPayload({ products, osList, sales, settings, storeId: store.id }));
+    downloadBackup(buildBackupPayload({ products, osList, sales, settings, etiquetas, storeId: store.id }));
     flashBackup({ type: 'ok', text: 'Backup exportado com sucesso.' });
   };
 
@@ -256,14 +257,20 @@ const Config = () => {
         if (!d || (!Array.isArray(d.products) && !Array.isArray(d.sales) && !Array.isArray(d.serviceOrders))) {
           throw new Error('Arquivo inválido');
         }
+        // Backup de outra loja (ex.: arquivo da Info Centro aberto na Eagle)
+        const backupStore = parsed.store || 'infocentro';
+        if (backupStore !== store.id && !window.confirm(
+          `ATENÇÃO: este backup é da loja "${STORES.find(s => s.id === backupStore)?.name || backupStore}", e você está na ${store.name}. Importar mesmo assim?`
+        )) return;
         const ok = window.confirm(
-          'Importar este backup vai SUBSTITUIR os dados atuais (produtos, vendas, ordens de serviço e configurações). Deseja continuar?'
+          'Importar este backup vai SUBSTITUIR os dados atuais (produtos, vendas, ordens de serviço, etiquetas e configurações). Deseja continuar?'
         );
         if (!ok) return;
 
         if (Array.isArray(d.products)) setProducts(d.products);
         if (Array.isArray(d.serviceOrders)) setOsList(d.serviceOrders);
         if (Array.isArray(d.sales)) setSales(d.sales);
+        if (Array.isArray(d.etiquetas)) setEtiquetas(d.etiquetas);
         // Restaurar backup não muda a senha do ADM: um backup antigo (sem hash)
         // apagaria a senha e liberaria o "criar senha" para qualquer pessoa.
         if (d.settings) setSettings({ ...d.settings, adminPinHash: settings?.adminPinHash || d.settings.adminPinHash });

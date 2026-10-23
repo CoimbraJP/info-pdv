@@ -9,12 +9,12 @@
  * (Drive/pendrive).
  */
 
-export const buildBackupPayload = ({ products, osList, sales, settings, storeId = 'infocentro' }) => ({
+export const buildBackupPayload = ({ products, osList, sales, settings, etiquetas = [], storeId = 'infocentro' }) => ({
   app: 'INFO CENTRO',
   store: storeId,
   version: 1,
   exportedAt: new Date().toISOString(),
-  data: { products, serviceOrders: osList, sales, settings },
+  data: { products, serviceOrders: osList, sales, settings, etiquetas },
 });
 
 export const downloadBackup = (payload, { auto = false } = {}) => {
