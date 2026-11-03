@@ -23,7 +23,7 @@ const THERMAL_MODELS = [
   },
 ];
 
-/* Miniatura visual de bobina térmica 58mm */
+/* Miniatura visual da bobina térmica (80 mm) */
 const ThermalPreview = ({ active }) => (
   <div style={{
     width: '44px',
@@ -442,10 +442,10 @@ const Config = () => {
             </form>
           </section>
 
-          {/* ── Impressora Térmica 58mm ── */}
+          {/* ── Impressora Elgin i8 (80 mm) ── */}
           <section className="panel">
             <header className="panel-head">
-              <h3 className="panel-title"><Printer size={17} /> Impressão — Térmica 58mm</h3>
+              <h3 className="panel-title"><Printer size={17} /> Impressão — Elgin i8 (80 mm)</h3>
             </header>
 
             <div className="thermal-grid mb-6">
@@ -469,7 +469,7 @@ const Config = () => {
             <div className="info-tip">
               <Printer size={16} className="text-primary" />
               <span>
-                Papel configurado: <strong>58 × 210 mm</strong> — Modelo ativo:{' '}
+                Impressora: <strong>Elgin i8 · bobina 80 mm</strong> — Modelo ativo:{' '}
                 <strong className="text-primary">
                   {THERMAL_MODELS.find(m => m.id === currentTemplate)?.name || currentTemplate}
                 </strong>
@@ -646,7 +646,7 @@ const Config = () => {
         <div className="print-section">
           <span className="print-section-title">Teste de Impressão</span>
           <p>Modelo: {THERMAL_MODELS.find(m => m.id === currentTemplate)?.name}</p>
-          <p>Papel: 58 × 210 mm</p>
+          <p>Papel: bobina 80 mm (Elgin i8)</p>
           <p>Loja: {storeForm.storeName}</p>
         </div>
         <div className="print-footer">
