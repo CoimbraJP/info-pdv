@@ -30,6 +30,6 @@ export const SAMPLE_SALE = {
 export const SAMPLE_OS = {
   id: '1004', client: 'CARLOS MENDES', clientCPF: '123.456.789-09', clientPhone: '(12) 98765-4321',
   clientAddress: { street: 'Rua das Flores', number: '45', neighborhood: 'Jd. Satélite', city: 'São José dos Campos', state: 'SP' },
-  deviceFull: 'NOTEBOOK DELL VOSTRO 3300 - S/N: 7XK2M93', devicePassword: '1234',
+  deviceFull: 'NOTEBOOK DELL VOSTRO 3300', devicePassword: '1234', agreedPrice: 250,
   accessories: 'Carregador original', defect: 'Não liga. A luz de energia pisca 3 vezes.',
 };

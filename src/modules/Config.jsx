@@ -3,7 +3,7 @@ import { Settings, Printer, Eye, Store, Check, Database, Download, Upload, Refre
 import { useGlobalState } from '../context/GlobalState';
 import { buildBackupPayload, downloadBackup } from '../utils/backup';
 import { SaleReceipt, OSReceipt } from '../components/Receipts';
-import { runOSPrint, OS_PRINT_MODES } from '../utils/printOS';
+import { runOSPrint, OS_PRINT_MODES, DEFAULT_OS_PRINT_MODE } from '../utils/printOS';
 import { SALE_TEMPLATES, OS_TEMPLATES, DEFAULT_SALE_TEMPLATE, DEFAULT_OS_TEMPLATE, SAMPLE_SALE, SAMPLE_OS } from '../constants/receiptTemplates';
 import { STORES, storeBrand } from '../constants/stores';
 import { DEFAULT_OS_TERMS } from '../constants/osTerms';
@@ -185,7 +185,7 @@ const Config = () => {
   const saleTemplate = settings?.saleTemplate || DEFAULT_SALE_TEMPLATE;
   const osTemplate = settings?.osTemplate || DEFAULT_OS_TEMPLATE;
   const [testOnly, setTestOnly] = useState(null);
-  const osPrintMode = settings?.osPrintMode || OS_PRINT_MODES.PAGINA;
+  const osPrintMode = settings?.osPrintMode || DEFAULT_OS_PRINT_MODE;
   const printTest = (kind) => {
     setTestKind(kind);
     if (kind === 'os') runOSPrint(setTestOnly, osPrintMode);
@@ -510,8 +510,8 @@ const Config = () => {
                 </button>
               </div>
               <p className="text-xs text-muted mt-2">
-                Use "Testar OS". Se a i8 não cortar entre as vias, escolha "Duas impressões separadas"
-                (ela corta no fim de cada impressão).
+                "Duas impressões separadas" é o recomendado para a i8: ela corta no fim de cada impressão
+                (sai a via da loja, corta, sai a via do cliente).
               </p>
             </div>
             <div className="flex gap-2 justify-end mt-4" style={{ flexWrap: 'wrap' }}>

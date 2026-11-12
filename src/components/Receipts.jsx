@@ -125,8 +125,7 @@ const addressText = (addr) => {
 const deviceParts = (os) => {
   const full = String(os.deviceFull || os.device || '');
   const m = full.match(/\s*-\s*S\/N:\s*(.*)$/i);
-  const sn = (m?.[1] || '').trim();
-  return { model: (m ? full.slice(0, m.index) : full).trim(), sn: sn && sn.toLowerCase() !== 'n/a' ? sn : '' };
+  return { model: (m ? full.slice(0, m.index) : full).trim() };
 };
 
 const KV = ({ label, value }) => (value ? <div className="rc-row rc-kv"><span>{label}</span><span>{value}</span></div> : null);
@@ -134,9 +133,9 @@ const Field = ({ label, value }) => (value ? <div className="rc-fld"><i>{label}<
 
 /** Corpo da OS conforme o modelo escolhido. */
 const OSBody = ({ os, template }) => {
-  const { model, sn } = deviceParts(os);
+  const { model } = deviceParts(os);
   const addr = addressText(os.clientAddress);
-  const d = { cpf: os.clientCPF, nome: os.client, tel: os.clientPhone, addr, model, senha: os.devicePassword, sn, acc: os.accessories, defeito: os.defect };
+  const d = { cpf: os.clientCPF, nome: os.client, tel: os.clientPhone, addr, model, senha: os.devicePassword, acc: os.accessories, defeito: os.defect };
 
   if (template === '1') {
     const line = (l, v) => (v ? <div>{l}: {v}</div> : null);
@@ -145,7 +144,7 @@ const OSBody = ({ os, template }) => {
         <div className="rc-sec">Dados do Cliente:</div>
         {line('CPF', d.cpf)}{line('Nome', d.nome)}{line('Telefone', d.tel)}{line('Endereço', d.addr)}
         <div className="rc-sec">EQUIPAMENTO:</div>
-        {line('Marca/Modelo', d.model)}{line('Senha', d.senha)}{line('Defeito reclamado', d.defeito)}{line('Acessórios', d.acc)}{line('Nº de série', d.sn)}
+        {line('Marca/Modelo', d.model)}{line('Senha', d.senha)}{line('Defeito reclamado', d.defeito)}{line('Acessórios', d.acc)}
       </>
     );
   }
@@ -157,7 +156,7 @@ const OSBody = ({ os, template }) => {
         <Field label="Nome" value={d.nome} /><Field label="Endereço" value={d.addr} />
         <div className="rc-sec">Equipamento</div>
         <Field label="Marca/Modelo" value={d.model} />
-        <div className="rc-g2"><Field label="Senha" value={d.senha} /><Field label="Nº de série" value={d.sn} /></div>
+        <Field label="Senha" value={d.senha} />
         <Field label="Defeito reclamado" value={d.defeito} /><Field label="Acessórios" value={d.acc} />
       </>
     );
@@ -172,7 +171,7 @@ const OSBody = ({ os, template }) => {
         </div>
         <div className="rc-frame">
           <div className="rc-ftitle">EQUIPAMENTO</div>
-          <KV label="Marca/Modelo" value={d.model} /><KV label="Senha" value={d.senha} /><KV label="Nº de série" value={d.sn} /><KV label="Acessórios" value={d.acc} />
+          <KV label="Marca/Modelo" value={d.model} /><KV label="Senha" value={d.senha} /><KV label="Acessórios" value={d.acc} />
           {d.defeito && <div className="rc-s rc-mt1"><b>Defeito reclamado:</b> {d.defeito}</div>}
         </div>
       </>
@@ -185,7 +184,7 @@ const OSBody = ({ os, template }) => {
         <KV label="CPF" value={d.cpf} /><KV label="Nome" value={d.nome} /><KV label="Telefone" value={d.tel} />
         {d.addr && <div className="rc-s">{d.addr}</div>}
         <div className="rc-inv rc-sbar">EQUIPAMENTO</div>
-        <KV label="Marca/Modelo" value={d.model} /><KV label="Senha" value={d.senha} /><KV label="Nº de série" value={d.sn} /><KV label="Acessórios" value={d.acc} />
+        <KV label="Marca/Modelo" value={d.model} /><KV label="Senha" value={d.senha} /><KV label="Acessórios" value={d.acc} />
         {d.defeito && <><div className="rc-b rc-mt1">Defeito reclamado</div><div>{d.defeito}</div></>}
       </>
     );
@@ -198,13 +197,7 @@ const OSBody = ({ os, template }) => {
       {d.addr && <div><b>End.:</b> {d.addr}</div>}
       <div className="rc-dash" />
       <div><b>Equip.:</b> {d.model}</div>
-      {(d.senha || d.sn) && (
-        <div>
-          {d.senha && <><b>Senha:</b> {d.senha}</>}
-          {d.senha && d.sn && ' · '}
-          {d.sn && <><b>S/N:</b> {d.sn}</>}
-        </div>
-      )}
+      {d.senha && <div><b>Senha:</b> {d.senha}</div>}
       {d.acc && <div><b>Acess.:</b> {d.acc}</div>}
       {d.defeito && <div><b>Defeito:</b> {d.defeito}</div>}
     </div>
@@ -222,18 +215,23 @@ export const OSReceipt = ({ os, template, preview = false, singleVia = false, on
   const t = template || settings?.osTemplate || DEFAULT_OS_TEMPLATE;
   const terms = osTermsLines(settings);
 
-  const via = (label, extra) => (
+  const price = Number(os.agreedPrice) > 0 ? Number(os.agreedPrice) : 0;
+  const via = (label, extra, isClient = false) => (
     <>
       <div className="rc-c rc-xs rc-b rc-vlabel">{label}</div>
       <PrintHeader os />
       <div className="rc-inv rc-row rc-osbar"><span>OS Nº {os.id}</span><span className="rc-s">{dateTime(os.date)}</span></div>
       <OSBody os={os} template={t} />
+      {/* Preço combinado: só na via do cliente (a loja vê no sistema). Vazio = não imprime. */}
+      {isClient && price > 0 && (
+        <div className="rc-row rc-price"><span>PREÇO COMBINADO</span><span>{formatCurrency(price)}</span></div>
+      )}
       {terms.length > 0 && <div className="rc-terms">{terms.map((line, i) => <p key={i}>{line}</p>)}</div>}
       {extra}
     </>
   );
   const lojaVia = via('VIA DA LOJA', <div className="rc-sig">Assinatura do cliente</div>);
-  const clienteVia = via('VIA DO CLIENTE');
+  const clienteVia = via('VIA DO CLIENTE', null, true);
 
   return (
     <div className={rootClass(preview)}>

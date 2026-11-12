@@ -5,6 +5,7 @@ import { useGlobalState } from '../context/GlobalState';
 import { OS_STATUS, OS_STATUS_WORK, OS_STATUS_META, normalizeStatus } from '../constants/osStatus';
 import { OSReceipt } from '../components/Receipts';
 import { runOSPrint } from '../utils/printOS';
+import { parseMoney } from '../utils/money';
 import './OS.css';
 
 const EMPTY_ADDRESS = { cep: '', street: '', number: '', neighborhood: '', city: '', state: '' };
@@ -19,12 +20,6 @@ const addressLines = (addr) => {
   return [l1, l2].filter(Boolean);
 };
 
-/** Extrai o S/N de `deviceFull` ("Tipo Marca - S/N: XXX"). */
-const deviceSerial = (os) => {
-  const m = String(os?.deviceFull || '').match(/S\/N:\s*(.+)$/i);
-  const sn = m?.[1]?.trim();
-  return sn && sn.toLowerCase() !== 'n/a' ? `S/N ${sn}` : '';
-};
 
 /**
  * Badge de status: substitui o <select> por um controle próprio.
@@ -112,11 +107,13 @@ const OS = () => {
     clientBirthDate: '',
     deviceType: 'Notebook',
     deviceBrand: '',
-    deviceSN: '',
+    agreedPrice: '',
     devicePassword: '',
     defect: ''
   });
   const numberInputRef = useRef(null);
+  const equipFirstRef = useRef(null);      // "Tipo" do equipamento
+  const lastFilledCpf = useRef('');        // evita roubar o foco de novo no mesmo CPF
 
   /**
    * Próximo número de OS: sequência baseada no maior ID numérico existente.
@@ -144,7 +141,9 @@ const OS = () => {
       clientCPF: formData.clientCPF,
       clientBirthDate: formData.clientBirthDate,
       clientAddress: { ...address }, // agora persiste (antes era coletado e descartado)
-      deviceFull: `${formData.deviceType} ${formData.deviceBrand} - S/N: ${formData.deviceSN}`,
+      deviceFull: `${formData.deviceType} ${formData.deviceBrand}`.trim(),
+      // Preço combinado com o cliente (opcional): sai só na via do cliente
+      agreedPrice: Number.isFinite(parseMoney(formData.agreedPrice)) ? parseMoney(formData.agreedPrice) : null,
       devicePassword: formData.devicePassword,
       defect: formData.defect,
       accessories: accessories,
@@ -159,7 +158,7 @@ const OS = () => {
       setActiveTab('list');
       setFormData({
         clientName: '', clientPhone: '', clientCPF: '', clientBirthDate: '',
-        deviceType: 'Notebook', deviceBrand: '', deviceSN: '',
+        deviceType: 'Notebook', deviceBrand: '', agreedPrice: '',
         devicePassword: '', defect: ''
       });
       setAddress(EMPTY_ADDRESS);
@@ -306,6 +305,11 @@ const OS = () => {
       .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
     setClientHistory(history);
     if (history.length === 0) return;
+    // Cliente encontrado: depois de preencher, o cursor vai para o 1º campo do equipamento
+    if (lastFilledCpf.current !== cleanCpf) {
+      lastFilledCpf.current = cleanCpf;
+      setTimeout(() => equipFirstRef.current?.focus(), 60);
+    }
 
     // Registro mais recente que tenha cada dado (OS antigas podem não ter tudo)
     const pick = (field) => history.find(os => os[field] && (typeof os[field] !== 'object' || os[field].cep || os[field].street))?.[field];
@@ -651,8 +655,8 @@ const OS = () => {
                       <div className="inner-divider" />
                       <div className="device-more">
                         <div className="field">
-                          <span className="field-label">Número de Série</span>
-                          <span className="field-value">{deviceSerial(editingOS) || '—'}</span>
+                          <span className="field-label">Preço combinado</span>
+                          <span className="field-value">{editingOS.agreedPrice ? formatCurrency(editingOS.agreedPrice) : '—'}</span>
                         </div>
                         <div className="field">
                           <span className="field-label">Acessórios</span>
@@ -849,6 +853,7 @@ const OS = () => {
                   <div className="form-group">
                     <label>Tipo</label>
                     <select 
+                      ref={equipFirstRef}
                       className="input select"
                       onChange={(e) => setFormData({...formData, deviceType: e.target.value})}
                     >
@@ -863,13 +868,6 @@ const OS = () => {
                     <input 
                       type="text" className="input" placeholder="Ex: Dell Inspiron 15" 
                       onChange={(e) => setFormData({...formData, deviceBrand: e.target.value})}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Número de Série</label>
-                    <input 
-                      type="text" className="input" placeholder="S/N" 
-                      onChange={(e) => setFormData({...formData, deviceSN: e.target.value})}
                     />
                   </div>
                   <div className="form-group">
@@ -899,6 +897,14 @@ const OS = () => {
                           setAccessories('Nenhum acessório deixado.');
                         }
                       }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Preço combinado (opcional — sai só na via do cliente)</label>
+                    <input
+                      type="text" inputMode="decimal" className="input" placeholder="Ex: 250,00"
+                      value={formData.agreedPrice}
+                      onChange={(e) => setFormData({ ...formData, agreedPrice: e.target.value })}
                     />
                   </div>
                 </div>

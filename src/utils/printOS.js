@@ -14,8 +14,11 @@
  */
 export const OS_PRINT_MODES = { PAGINA: 'pagina', SEPARADO: 'separado' };
 
-export function runOSPrint(setOnly, mode, after) {
-  if (mode !== OS_PRINT_MODES.SEPARADO) {
+/** Padrão: duas impressões (no teste real a i8 não cortou na quebra de página). */
+export const DEFAULT_OS_PRINT_MODE = OS_PRINT_MODES.SEPARADO;
+
+export function runOSPrint(setOnly, mode = DEFAULT_OS_PRINT_MODE, after) {
+  if ((mode || DEFAULT_OS_PRINT_MODE) === OS_PRINT_MODES.PAGINA) {
     setOnly(null);
     setTimeout(() => { window.print(); after?.(); }, 150);
     return;
