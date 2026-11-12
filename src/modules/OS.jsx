@@ -86,9 +86,11 @@ const StatusPill = ({ status, onChange }) => {
   );
 };
 
-const OS = () => {
+const OS = ({ startTab = null, onStartTabUsed }) => {
   const { osList, setOsList, settings } = useGlobalState();
-  const [activeTab, setActiveTab] = useState('list'); // 'list' | 'new'
+  const [activeTab, setActiveTab] = useState(startTab || 'list'); // 'list' | 'new'
+  // "Abrir OS" vindo do PDV vale só para esta abertura da tela
+  useEffect(() => { if (startTab) onStartTabUsed?.(); }, [startTab, onStartTabUsed]);
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');

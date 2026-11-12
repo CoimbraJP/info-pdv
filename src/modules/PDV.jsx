@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Trash2, CreditCard, X, ShoppingCart, Pencil, ArrowLeft } from 'lucide-react';
+import { Search, Plus, Trash2, CreditCard, X, ShoppingCart, Pencil, ArrowLeft, ClipboardList } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { round2, parseMoney, toInputMoney } from '../utils/money';
 import { useGlobalState } from '../context/GlobalState';
@@ -34,7 +34,7 @@ const parseFinalPrice = (raw, subtotal) => {
 const isTypingField = (el) =>
   el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT');
 
-const PDV = () => {
+const PDV = ({ onOpenOS }) => {
   const [cart, setCart] = useState([]);
   const [barcode, setBarcode] = useState('');
   const [suggestions, setSuggestions] = useState([]);
@@ -199,6 +199,12 @@ const PDV = () => {
   };
 
   const removeFromCart = (id) => setCart(prev => prev.filter(item => item.id !== id));
+
+  /** Vai para a tela de OS já no formulário de nova OS (o carrinho fica só em memória: confirma se houver itens). */
+  const handleOpenOS = () => {
+    if (cart.length > 0 && !window.confirm('Há itens no carrinho. Abrir uma OS agora vai descartar esta venda. Continuar?')) return;
+    onOpenOS?.();
+  };
 
   /** Cancelar limpa o carrinho — confirma quando há vários itens digitados. */
   const handleCancelSale = () => {
@@ -382,6 +388,11 @@ const PDV = () => {
       e.preventDefault();
       openCheckout();
     }
+    if (e.key === 'F6' && !isModalOpen) {
+      e.preventDefault();
+      handleOpenOS();
+      return;
+    }
     if (e.key === 'F4' && cart.length > 0 && !isModalOpen) {
       e.preventDefault();
       handleCancelSale();
@@ -537,6 +548,16 @@ const PDV = () => {
               <X size={20} />
               <span>Cancelar Venda</span>
               <span className="shortcut">[F4]</span>
+            </button>
+
+            <button
+              className="btn-outline action-btn"
+              onClick={handleOpenOS}
+              title="Abrir uma nova Ordem de Serviço"
+            >
+              <ClipboardList size={20} />
+              <span>Abrir OS</span>
+              <span className="shortcut">[F6]</span>
             </button>
           </div>
         </div>

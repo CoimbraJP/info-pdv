@@ -22,12 +22,15 @@ import './modules/PrintOS.css';
 function AppShell() {
   const { isAdmin } = useGlobalState();
   const [activeModule, setActiveModule] = useState('pdv');
+  // Atalho "Abrir OS" do PDV: abre a tela de OS já no formulário de nova OS
+  const [osStartTab, setOsStartTab] = useState(null);
+  const openNewOS = () => { setOsStartTab('new'); setActiveModule('os'); };
   const current = canAccessModule(activeModule, isAdmin) ? activeModule : 'pdv';
 
   const renderModule = () => {
     switch (current) {
-      case 'pdv':       return <PDV />;
-      case 'os':        return <OS />;
+      case 'pdv':       return <PDV onOpenOS={openNewOS} />;
+      case 'os':        return <OS startTab={osStartTab} onStartTabUsed={() => setOsStartTab(null)} />;
       case 'dashboard': return <Dashboard />;
       case 'estoque':   return <Estoque />;
       case 'etiquetas': return <Etiquetas />;
