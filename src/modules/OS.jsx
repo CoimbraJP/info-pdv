@@ -4,6 +4,7 @@ import { formatCurrency, formatDate, parseDate } from '../utils/formatters';
 import { useGlobalState } from '../context/GlobalState';
 import { OS_STATUS, OS_STATUS_WORK, OS_STATUS_META, normalizeStatus } from '../constants/osStatus';
 import { OSReceipt } from '../components/Receipts';
+import { runOSPrint } from '../utils/printOS';
 import './OS.css';
 
 const EMPTY_ADDRESS = { cep: '', street: '', number: '', neighborhood: '', city: '', state: '' };
@@ -91,7 +92,7 @@ const StatusPill = ({ status, onChange }) => {
 };
 
 const OS = () => {
-  const { osList, setOsList } = useGlobalState();
+  const { osList, setOsList, settings } = useGlobalState();
   const [activeTab, setActiveTab] = useState('list'); // 'list' | 'new'
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
   const [filter, setFilter] = useState('all');
@@ -154,8 +155,7 @@ const OS = () => {
 
     setOsList([...osList, newOs]);
     setPrintOS(newOs); // a OS impressa é exatamente a que foi gravada
-    setTimeout(() => {
-      window.print();
+    runOSPrint(setPrintOnly, settings?.osPrintMode, () => {
       setActiveTab('list');
       setFormData({
         clientName: '', clientPhone: '', clientCPF: '', clientBirthDate: '',
@@ -165,11 +165,12 @@ const OS = () => {
       setAddress(EMPTY_ADDRESS);
       setAccessories('');
       setClientHistory([]);
-    }, 100);
+    });
   };
   
   const [isDeviceExpanded, setIsDeviceExpanded] = useState(false);
   const [printOS, setPrintOS] = useState(null); // OS que vai para a impressora
+  const [printOnly, setPrintOnly] = useState(null); // modo 'duas impressões': qual via está saindo
   const [isServicesExpanded, setIsServicesExpanded] = useState(true);
 
   const handleEdit = (os) => {
@@ -536,7 +537,7 @@ const OS = () => {
                 <button className="btn-outline" onClick={handleCloseOS}>
                   <CheckCircle size={17} /> Encerrar OS
                 </button>
-                <button className="btn-outline" onClick={() => { setPrintOS(editingOS); setTimeout(() => window.print(), 120); }}>
+                <button className="btn-outline" onClick={() => { setPrintOS(editingOS); runOSPrint(setPrintOnly, settings?.osPrintMode); }}>
                   <Printer size={17} /> Re-imprimir Nota
                 </button>
                 <button className="btn-outline" onClick={saveEdit}>
@@ -915,7 +916,7 @@ const OS = () => {
       </div>
 
       {/* OS impressa (Elgin i8 · modelo 4, duas vias) */}
-      {printOS && <OSReceipt os={printOS} />}
+      {printOS && <OSReceipt os={printOS} only={printOnly} />}
       {showServiceModal && (
         <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && setShowServiceModal(false)}>
           <div className="modal-content card">

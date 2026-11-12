@@ -224,3 +224,8 @@
 .rcpt.rc-preview { width: 72mm; background: #fff; }
 .rcpt .rc-tot span { white-space: nowrap; }
 .rcpt .rc-tot.rc-inv { font-size: 12pt; padding: 1.4mm 1.5mm; margin: 1.5mm 0 2mm; }
+
+/* Quebra entre a via da loja e a do cliente (a i8 corta aqui) */
+@media print {
+  .rcpt .rc-pagebreak { break-after: page; page-break-after: always; padding-bottom: 4mm; }
+}

@@ -3,6 +3,7 @@ import { Settings, Printer, Eye, Store, Check, Database, Download, Upload, Refre
 import { useGlobalState } from '../context/GlobalState';
 import { buildBackupPayload, downloadBackup } from '../utils/backup';
 import { SaleReceipt, OSReceipt } from '../components/Receipts';
+import { runOSPrint, OS_PRINT_MODES } from '../utils/printOS';
 import { SALE_TEMPLATES, OS_TEMPLATES, DEFAULT_SALE_TEMPLATE, DEFAULT_OS_TEMPLATE, SAMPLE_SALE, SAMPLE_OS } from '../constants/receiptTemplates';
 import { STORES, storeBrand } from '../constants/stores';
 import { DEFAULT_OS_TERMS } from '../constants/osTerms';
@@ -183,7 +184,13 @@ const Config = () => {
   const [testKind, setTestKind] = useState('venda'); // o que o "Testar impressão" manda para a i8
   const saleTemplate = settings?.saleTemplate || DEFAULT_SALE_TEMPLATE;
   const osTemplate = settings?.osTemplate || DEFAULT_OS_TEMPLATE;
-  const printTest = (kind) => { setTestKind(kind); setTimeout(() => window.print(), 120); };
+  const [testOnly, setTestOnly] = useState(null);
+  const osPrintMode = settings?.osPrintMode || OS_PRINT_MODES.PAGINA;
+  const printTest = (kind) => {
+    setTestKind(kind);
+    if (kind === 'os') runOSPrint(setTestOnly, osPrintMode);
+    else setTimeout(() => window.print(), 120);
+  };
   const [saved, setSaved] = useState(false);
   const [backupMsg, setBackupMsg] = useState(null);
   const fileInputRef = useRef(null);
@@ -484,6 +491,29 @@ const Config = () => {
               onPick={(id) => setSettings({ ...settings, osTemplate: id })}
               render={(id) => <OSReceipt preview singleVia template={id} os={{ ...SAMPLE_OS, date: new Date().toISOString() }} />}
             />
+            <div className="form-group mt-4">
+              <label>Corte entre as vias da O.S. (sai primeiro a via da loja, depois a do cliente)</label>
+              <div className="seg-control mt-2" role="group" aria-label="Corte entre as vias">
+                <button
+                  type="button"
+                  className={`seg-item ${osPrintMode === OS_PRINT_MODES.PAGINA ? 'is-active' : ''}`}
+                  onClick={() => setSettings({ ...settings, osPrintMode: OS_PRINT_MODES.PAGINA })}
+                >
+                  Uma impressão (quebra de página)
+                </button>
+                <button
+                  type="button"
+                  className={`seg-item ${osPrintMode === OS_PRINT_MODES.SEPARADO ? 'is-active' : ''}`}
+                  onClick={() => setSettings({ ...settings, osPrintMode: OS_PRINT_MODES.SEPARADO })}
+                >
+                  Duas impressões separadas
+                </button>
+              </div>
+              <p className="text-xs text-muted mt-2">
+                Use "Testar OS". Se a i8 não cortar entre as vias, escolha "Duas impressões separadas"
+                (ela corta no fim de cada impressão).
+              </p>
+            </div>
             <div className="flex gap-2 justify-end mt-4" style={{ flexWrap: 'wrap' }}>
               <span className="text-sm text-muted" style={{ marginRight: 'auto' }}>
                 Impressora: <strong>Elgin i8 · bobina 80 mm</strong>. A escolha vale só para esta loja.
@@ -663,7 +693,7 @@ const Config = () => {
       {/* Teste de impressão: cupom de exemplo no modelo oficial, com os dados digitados */}
       {testKind === 'venda'
         ? <SaleReceipt override={storeForm} sale={{ ...SAMPLE_SALE, id: 'TESTE1', date: new Date().toISOString() }} />
-        : <OSReceipt os={{ ...SAMPLE_OS, id: 'TESTE', date: new Date().toISOString() }} />}
+        : <OSReceipt only={testOnly} os={{ ...SAMPLE_OS, id: 'TESTE', date: new Date().toISOString() }} />}
     </div>
   );
 };

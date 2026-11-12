@@ -211,8 +211,13 @@ const OSBody = ({ os, template }) => {
   );
 };
 
-/** Ordem de serviço — duas vias iguais (cliente primeiro, depois a da loja), com as condições. */
-export const OSReceipt = ({ os, template, preview = false, singleVia = false }) => {
+/**
+ * Ordem de serviço — duas vias iguais com as condições.
+ * Ordem: VIA DA LOJA (com assinatura) e depois VIA DO CLIENTE, separadas por
+ * quebra de página: a Elgin i8 corta entre elas e o último papel é do cliente.
+ * `only`: 'loja' | 'cliente' imprime só uma via (modo "duas impressões").
+ */
+export const OSReceipt = ({ os, template, preview = false, singleVia = false, only = null }) => {
   const { settings } = useGlobalState();
   const t = template || settings?.osTemplate || DEFAULT_OS_TEMPLATE;
   const terms = osTermsLines(settings);
@@ -227,14 +232,15 @@ export const OSReceipt = ({ os, template, preview = false, singleVia = false }) 
       {extra}
     </>
   );
+  const lojaVia = via('VIA DA LOJA', <div className="rc-sig">Assinatura do cliente</div>);
+  const clienteVia = via('VIA DO CLIENTE');
 
   return (
     <div className={rootClass(preview)}>
-      {via('VIA DO CLIENTE')}
-      {!singleVia && (
+      {only === 'cliente' ? clienteVia : (
         <>
-          <div className="rc-cut">✂ - - - - - - - corte aqui - - - - - - - ✂</div>
-          {via('VIA DA LOJA', <div className="rc-sig">Assinatura do cliente</div>)}
+          <div className={singleVia || only === 'loja' ? '' : 'rc-pagebreak'}>{lojaVia}</div>
+          {!singleVia && only !== 'loja' && clienteVia}
         </>
       )}
     </div>
