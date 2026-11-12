@@ -4,7 +4,7 @@ import { formatCurrency } from '../utils/formatters';
 import { round2, parseMoney, toInputMoney } from '../utils/money';
 import { useGlobalState } from '../context/GlobalState';
 import { PAYMENT_METHODS, CARD_MODES, MAX_INSTALLMENTS, CARD_FEES, cardDetails, paymentText } from '../constants/payment';
-import { ReceiptHeader, ReceiptSite } from '../components/ReceiptBrand';
+import { SaleReceipt } from '../components/Receipts';
 import './PDV.css';
 
 /**
@@ -47,7 +47,8 @@ const PDV = () => {
   // Checkout
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cartao');
-  const [finalPriceInput, setFinalPriceInput] = useState(''); // valor final combinado com o cliente
+  const [finalPriceInput, setFinalPriceInput] = useState('');
+  const [printSale, setPrintSale] = useState(null); // valor final combinado com o cliente
   // Passos: 'pagamento' → 'valor' (Enter finaliza e imprime; digitar menos = desconto)
   const [checkoutStep, setCheckoutStep] = useState('pagamento');
   const [cardMode, setCardMode] = useState('debito'); // 'debito' | 'avista' | 'parcelado'
@@ -59,7 +60,7 @@ const PDV = () => {
   const checkoutRef = useRef(null);
   const finalInputRef = useRef(null);
   const submittingRef = useRef(false); // evita venda duplicada com Enter repetido
-  const { products, addSale, settings, isAdmin } = useGlobalState();
+  const { products, addSale, isAdmin } = useGlobalState();
 
   // Focus barcode input on click anywhere (except inputs)
   useEffect(() => {
@@ -262,7 +263,9 @@ const PDV = () => {
     if (submittingRef.current || priceError) return;
     submittingRef.current = true;
 
-    addSale({
+    const sale = {
+      id: crypto.randomUUID(),
+      date: new Date().toISOString(),
       items: cart,
       subtotal,
       discount,
@@ -276,7 +279,9 @@ const PDV = () => {
         feeAmount,
         netAmount: round2(total - feeAmount),
       } : {}),
-    });
+    };
+    addSale(sale);
+    setPrintSale(sale); // o cupom impresso é exatamente a venda gravada
 
     // Espera o React renderizar o cupom antes de imprimir
     setTimeout(() => {
@@ -749,62 +754,8 @@ const PDV = () => {
         </div>
       )}
 
-      {/* ── Print Receipt (screen-hidden) ── */}
-      <div className={`print-only template-${settings?.osPrintTemplate || 'thermal-1'}`}>
-        <ReceiptHeader>
-          <p>{new Date().toLocaleString('pt-BR')}</p>
-        </ReceiptHeader>
-        <div className="print-section text-center">
-          <span className="print-section-title">CUPOM NÃO FISCAL</span>
-        </div>
-        <div className="print-section" style={{ borderBottom: '1px dashed #000', paddingBottom: '2mm' }}>
-          <div className="print-row" style={{ fontWeight: 'bold' }}>
-            <span>DESCRIÇÃO</span>
-            <span>TOTAL</span>
-          </div>
-          {cart.map(item => (
-            <div key={item.id} style={{ marginBottom: '1mm' }}>
-              <div className="upper">{item.name}</div>
-              <div className="print-row">
-                <span>{item.quantity} x {formatCurrency(item.price)}</span>
-                <span>{formatCurrency(item.price * item.quantity)}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="print-section" style={{ marginTop: '2mm' }}>
-          {discount > 0 && (
-            <>
-              <div className="print-row">
-                <span>Subtotal</span>
-                <span>{formatCurrency(subtotal)}</span>
-              </div>
-              <div className="print-row">
-                <span>Desconto</span>
-                <span>- {formatCurrency(discount)}</span>
-              </div>
-            </>
-          )}
-          <div className="print-row" style={{ fontSize: '11pt', fontWeight: 'bold' }}>
-            <span>TOTAL</span>
-            <span>{formatCurrency(total)}</span>
-          </div>
-          <div className="print-row">
-            <span>Pagamento</span>
-            <span>{paymentText(saleForPrint)}</span>
-          </div>
-          {installmentValue > 0 && (
-            <div className="print-row">
-              <span>Parcelas</span>
-              <span>{card.installments}x de {formatCurrency(installmentValue)}</span>
-            </div>
-          )}
-        </div>
-        <div className="print-footer">
-          <p>Obrigado pela preferência!</p>
-          <ReceiptSite />
-        </div>
-      </div>
+      {/* ── Cupom (Elgin i8 · modelo B4) ── */}
+      {printSale && <SaleReceipt sale={printSale} />}
     </div>
   );
 };

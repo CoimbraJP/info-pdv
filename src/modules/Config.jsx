@@ -2,60 +2,9 @@ import { useState, useRef } from 'react';
 import { Settings, Printer, Eye, Store, Check, Database, Download, Upload, RefreshCw, ShieldCheck, Sun, Moon, Palette, KeyRound, ImagePlus, Trash2 } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
 import { buildBackupPayload, downloadBackup } from '../utils/backup';
-import { ReceiptHeader } from '../components/ReceiptBrand';
+import { SaleReceipt } from '../components/Receipts';
 import { STORES, storeBrand } from '../constants/stores';
-
-const THERMAL_MODELS = [
-  {
-    id: 'thermal-1',
-    name: 'Padrão Simples',
-    desc: 'Logo + dados + itens + total',
-  },
-  {
-    id: 'thermal-2',
-    name: 'Compacto',
-    desc: 'Sem separadores, máx. papel',
-  },
-  {
-    id: 'thermal-3',
-    name: 'Detalhado',
-    desc: 'Com unitário, qtd e subtotal',
-  },
-];
-
-/* Miniatura visual da bobina térmica (80 mm) */
-const ThermalPreview = ({ active }) => (
-  <div style={{
-    width: '44px',
-    height: '60px',
-    background: '#fff',
-    borderRadius: '3px',
-    padding: '4px 3px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2px',
-    boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
-    opacity: active ? 1 : 0.55,
-    transition: 'opacity 0.2s',
-    flexShrink: 0,
-  }}>
-    {/* logo simulado */}
-    <div style={{ height: '4px', background: '#555', borderRadius: '1px', width: '70%', margin: '0 auto' }} />
-    <div style={{ height: '2px', background: '#bbb', borderRadius: '1px', width: '50%', margin: '0 auto' }} />
-    {/* separator */}
-    <div style={{ borderTop: '1px dashed #999', width: '100%', margin: '1px 0' }} />
-    {/* items */}
-    <div style={{ height: '2px', background: '#ccc', borderRadius: '1px', width: '100%' }} />
-    <div style={{ height: '2px', background: '#ccc', borderRadius: '1px', width: '85%' }} />
-    <div style={{ height: '2px', background: '#ccc', borderRadius: '1px', width: '100%' }} />
-    {/* separator */}
-    <div style={{ borderTop: '1px dashed #999', width: '100%', margin: '1px 0' }} />
-    {/* total */}
-    <div style={{ height: '3px', background: '#333', borderRadius: '1px', width: '60%', marginLeft: 'auto' }} />
-    {/* footer */}
-    <div style={{ marginTop: 'auto', height: '2px', background: '#bbb', borderRadius: '1px', width: '50%', margin: '0 auto' }} />
-  </div>
-);
+import { DEFAULT_OS_TERMS } from '../constants/osTerms';
 
 const styles = `
 .logo-row { display: flex; align-items: center; gap: var(--s-4); }
@@ -169,6 +118,18 @@ const compressLogo = (file) => new Promise((resolve, reject) => {
   reader.readAsDataURL(file);
 });
 
+/** Cupom de exemplo do botão "Testar Impressão" (com os dados ainda não salvos do formulário). */
+const TestReceipt = ({ override }) => (
+  <SaleReceipt
+    override={override}
+    sale={{
+      id: 'TESTE1', date: new Date().toISOString(),
+      items: [{ name: 'TESTE DE IMPRESSÃO', price: 1, quantity: 1 }],
+      subtotal: 1, discount: 0, total: 1, paymentMethod: 'pix',
+    }}
+  />
+);
+
 const Config = () => {
   const {
     settings, setSettings,
@@ -193,10 +154,13 @@ const Config = () => {
   const fileInputRef = useRef(null);
   const [storeForm, setStoreForm] = useState({
     storeName: settings?.storeName || store.name,
-    storeSlogan: settings?.storeSlogan || '',
-    storePhone: settings?.storePhone || '',
-    storeAddress: settings?.storeAddress || '',
+    // Valores efetivos (o salvo ou o padrão da loja) — salvar grava os reais
+    storeSlogan: brand.slogan || '',
+    storeOsSlogan: brand.osSlogan || '',
+    storePhone: brand.phone || '',
+    storeAddress: brand.address || '',
     storeSite: brand.site || '',
+    osTerms: settings?.osTerms ?? DEFAULT_OS_TERMS,
   });
 
   const handleLogoFile = async (e) => {
@@ -234,7 +198,6 @@ const Config = () => {
     setTimeout(() => setCredMsg(null), 6000);
   };
 
-  const currentTemplate = settings?.osPrintTemplate || 'thermal-1';
 
   const flashBackup = (msg) => {
     setBackupMsg(msg);
@@ -285,10 +248,6 @@ const Config = () => {
       }
     };
     reader.readAsText(file);
-  };
-
-  const handleTemplateChange = (id) => {
-    setSettings({ ...settings, osPrintTemplate: id });
   };
 
   const handleChangePassword = async (e) => {
@@ -398,12 +357,21 @@ const Config = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Slogan (opcional, sai no cupom)</label>
+                  <label>Frase do cupom de venda (opcional)</label>
                   <input
                     type="text" className="input"
                     value={storeForm.storeSlogan}
                     onChange={e => setStoreForm({ ...storeForm, storeSlogan: e.target.value })}
                     placeholder="Assistência Técnica e Vendas"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Frase da O.S. (opcional)</label>
+                  <input
+                    type="text" className="input"
+                    value={storeForm.storeOsSlogan}
+                    onChange={e => setStoreForm({ ...storeForm, storeOsSlogan: e.target.value })}
+                    placeholder="Assistência Técnica Especializada"
                   />
                 </div>
                 <div className="form-group">
@@ -433,6 +401,25 @@ const Config = () => {
                     placeholder="minhaloja.com.br"
                   />
                 </div>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="flex justify-between">
+                    <span>Condições da O.S. (uma por linha — saem no final das duas vias)</span>
+                    <button
+                      type="button"
+                      className="btn-link text-xs"
+                      onClick={() => setStoreForm({ ...storeForm, osTerms: DEFAULT_OS_TERMS })}
+                    >
+                      Restaurar padrão
+                    </button>
+                  </label>
+                  <textarea
+                    className="input"
+                    rows={5}
+                    style={{ height: 'auto', fontSize: '0.85rem', lineHeight: 1.45, resize: 'vertical' }}
+                    value={storeForm.osTerms}
+                    onChange={e => setStoreForm({ ...storeForm, osTerms: e.target.value })}
+                  />
+                </div>
               </div>
               <div className="flex justify-end">
                 <button type="submit" className="btn btn-primary">
@@ -448,31 +435,12 @@ const Config = () => {
               <h3 className="panel-title"><Printer size={17} /> Impressão — Elgin i8 (80 mm)</h3>
             </header>
 
-            <div className="thermal-grid mb-6">
-              {THERMAL_MODELS.map(model => (
-                <div
-                  key={model.id}
-                  className={`thermal-card ${currentTemplate === model.id ? 'selected' : ''}`}
-                  onClick={() => handleTemplateChange(model.id)}
-                  role="radio"
-                  aria-checked={currentTemplate === model.id}
-                  tabIndex={0}
-                  onKeyDown={e => e.key === 'Enter' && handleTemplateChange(model.id)}
-                >
-                  <ThermalPreview active={currentTemplate === model.id} />
-                  <span className="thermal-card-name">{model.name}</span>
-                  <span className="thermal-card-desc">{model.desc}</span>
-                </div>
-              ))}
-            </div>
-
             <div className="info-tip">
               <Printer size={16} className="text-primary" />
               <span>
-                Impressora: <strong>Elgin i8 · bobina 80 mm</strong> — Modelo ativo:{' '}
-                <strong className="text-primary">
-                  {THERMAL_MODELS.find(m => m.id === currentTemplate)?.name || currentTemplate}
-                </strong>
+                Impressora: <strong>Elgin i8 · bobina 80 mm</strong> — Cupom de venda: <strong className="text-primary">modelo B4</strong> ·
+                Ordem de serviço: <strong className="text-primary">modelo 4 (duas vias)</strong>.
+                O botão <strong>Testar Impressão</strong> (no topo) imprime um cupom de exemplo com os dados desta loja.
               </span>
             </div>
           </section>
@@ -640,20 +608,8 @@ const Config = () => {
         </div>
       </div>
 
-      {/* Print preview (hidden on screen) */}
-      <div className="print-only">
-        <ReceiptHeader override={storeForm} />
-        <div className="print-section">
-          <span className="print-section-title">Teste de Impressão</span>
-          <p>Modelo: {THERMAL_MODELS.find(m => m.id === currentTemplate)?.name}</p>
-          <p>Papel: bobina 80 mm (Elgin i8)</p>
-          <p>Loja: {storeForm.storeName}</p>
-        </div>
-        <div className="print-footer">
-          <p>Impressora configurada!</p>
-          {storeForm.storeSite && <p>{storeForm.storeSite}</p>}
-        </div>
-      </div>
+      {/* Teste de impressão: cupom de exemplo no modelo oficial, com os dados digitados */}
+      <TestReceipt override={storeForm} />
     </div>
   );
 };

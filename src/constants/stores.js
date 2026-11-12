@@ -14,6 +14,10 @@ export const STORES = [
     localDb: 'infocentro',            // banco local que já existia — dados preservados
     defaultLogo: '/logo-square.png',
     defaultSite: 'infocentro.com.br',
+    defaultSlogan: 'Assistência Técnica e Vendas',
+    defaultOsSlogan: 'Assistência Técnica Especializada',
+    defaultAddress: 'Rua Rubião Júnior, 33 — Centro — São José dos Campos - SP',
+    defaultPhone: '(12) 98200-7553',
   },
   {
     id: 'eaglegames',
@@ -21,18 +25,28 @@ export const STORES = [
     defaultCode: '111',
     master: false,
     localDb: 'infopdv-eaglegames',
-    defaultLogo: null,
+    defaultLogo: null,               // sem logo: o cupom sai com o nome em moldura
     defaultSite: '',
+    defaultSlogan: '',
+    defaultOsSlogan: '',
+    defaultAddress: 'Rua Rubião Júnior, 33 — Centro — São José dos Campos - SP',
+    defaultPhone: '(12) 3942-1409',
   },
 ];
 
 export const getStore = (id) => STORES.find((s) => s.id === id) || null;
 
-/** Dados de marca usados na barra lateral e nos cupons. */
+/** Valores de exemplo das primeiras versões — tratados como "não preenchido". */
+const PLACEHOLDERS = new Set(['SJC — São Paulo', '(12) 99999-9999']);
+const filled = (v) => (v && !PLACEHOLDERS.has(String(v).trim()) ? v : '');
+
+/** Dados de marca usados na barra lateral e nos cupons (o salvo em Configurações ou o padrão da loja). */
 export const storeBrand = (store, settings) => ({
   name: settings?.storeName || store?.name || '',
   logo: settings?.logoDataUrl || store?.defaultLogo || null,
   site: settings?.storeSite ?? store?.defaultSite ?? '',
-  phone: settings?.storePhone || '',
-  address: settings?.storeAddress || '',
+  phone: filled(settings?.storePhone) || store?.defaultPhone || '',
+  address: filled(settings?.storeAddress) || store?.defaultAddress || '',
+  slogan: settings?.storeSlogan ?? store?.defaultSlogan ?? '',
+  osSlogan: settings?.storeOsSlogan ?? store?.defaultOsSlogan ?? settings?.storeSlogan ?? '',
 });

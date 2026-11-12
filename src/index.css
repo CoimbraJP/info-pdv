@@ -1034,3 +1034,11 @@ input, select, textarea {
   animation: fadeIn 0.25s ease-out;
 }
 .update-banner svg { color: var(--primary-color); }
+
+/* Botão com aparência de link */
+.btn-link {
+  background: none; border: none; padding: 0;
+  color: var(--primary-color); font-family: var(--font-main);
+  cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+}
+.btn-link:hover { color: var(--text-main); }

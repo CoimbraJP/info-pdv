@@ -1,3 +1,4 @@
+/* Não é mais usado: os cupons ficam em src/components/Receipts.jsx. Pode apagar este arquivo. */
 import { useGlobalState } from '../context/GlobalState';
 import { storeBrand } from '../constants/stores';
 

@@ -22,8 +22,12 @@
   .print-only,
   .print-only * {
     visibility: visible !important;
+  }
+  /* Layouts antigos: tudo preto e negrito. Os cupons novos (.rcpt) controlam o próprio peso/cor. */
+  .print-only:not(.rcpt),
+  .print-only:not(.rcpt) * {
     color: #000 !important;
-    font-weight: 700 !important; /* Força a térmica a queimar mais escuro */
+    font-weight: 700 !important;
   }
 
   .print-only {
@@ -38,10 +42,12 @@
     margin: 0 !important;
     color: #000 !important;
     background: #fff !important;
+    z-index: 99999 !important;
+  }
+  .print-only:not(.rcpt) {
     font-family: 'Courier New', Courier, monospace !important;
     font-size: 10pt !important;
     line-height: 1.35 !important;
-    z-index: 99999 !important;
   }
 
   @page {
@@ -154,3 +160,51 @@
   }
 }
 .print-logo-img { max-width: 120px; max-height: 64px; }
+
+/* Condições da O.S. (letra pequena, antes da assinatura) */
+.print-terms { display: none; }
+@media print {
+  .print-terms {
+    display: block;
+    margin-top: 3mm;
+    padding-top: 1.5mm;
+    border-top: 1px dashed #000;
+    font-size: 7.5pt;
+    line-height: 1.3;
+  }
+  .print-terms p { margin: 0 0 0.6mm; }
+}
+
+/* ==========================================================================
+   CUPONS ELGIN i8 — Venda B4 · OS 4 (área útil 72 mm)
+   ========================================================================== */
+.rcpt { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; line-height: 1.35; color: #000; }
+.rcpt * { color: #000; }
+.rcpt .rc-c { text-align: center; }
+.rcpt .rc-b { font-weight: 700; }
+.rcpt .rc-s { font-size: 9pt; }
+.rcpt .rc-xs { font-size: 7.5pt; }
+.rcpt .rc-up { text-transform: uppercase; }
+.rcpt .rc-brand { font-family: "Arial Black", "Arial Bold", Arial, sans-serif; font-weight: 900; font-size: 21pt; line-height: 1.05; letter-spacing: 0.5px; }
+.rcpt .rc-tag { font-size: 11.5pt; margin-top: 0.5mm; }
+.rcpt .rc-addr { font-size: 8pt; line-height: 1.3; }
+.rcpt .rc-logo { width: 16mm; height: auto; display: block; margin: 0 auto 1mm; filter: grayscale(1) contrast(1.3); }
+.rcpt .rc-hbox { border: 1.5px solid #000; border-radius: 1.5mm; padding: 2mm 1mm; margin-bottom: 1mm; }
+.rcpt .rc-row { display: flex; justify-content: space-between; gap: 3mm; }
+.rcpt .rc-row > span:last-child { text-align: right; }
+.rcpt .rc-line { border-top: 1px solid #000; margin: 2mm 0; }
+.rcpt .rc-dash { border-top: 1px dashed #000; margin: 2mm 0; }
+.rcpt .rc-colh { margin-top: 1.5mm; }
+.rcpt .rc-it { margin-top: 1.4mm; }
+.rcpt .rc-tot { font-size: 13.5pt; font-weight: 800; margin: 1.2mm 0; }
+.rcpt .rc-thanks { font-size: 11pt; margin-top: 1mm; }
+.rcpt .rc-inv { background: #000 !important; padding: 1.2mm 2mm; }
+.rcpt .rc-inv, .rcpt .rc-inv * { color: #fff !important; }
+.rcpt .rc-osbar { font-weight: 900; font-size: 14pt; align-items: center; margin: 2mm 0; }
+.rcpt .rc-osbar .rc-s { font-weight: 600; }
+.rcpt .rc-vlabel { letter-spacing: 1.5px; margin-bottom: 1mm; }
+.rcpt .rc-cmp { font-size: 9pt; line-height: 1.35; }
+.rcpt .rc-terms { margin-top: 2.5mm; padding-top: 1.5mm; border-top: 1px dashed #000; font-size: 7.5pt; line-height: 1.3; }
+.rcpt .rc-terms p { margin: 0 0 0.6mm; }
+.rcpt .rc-sig { margin-top: 10mm; border-top: 1px solid #000; text-align: center; font-size: 8.5pt; padding-top: 0.5mm; }
+.rcpt .rc-cut { text-align: center; margin: 5mm 0 4mm; font-size: 9pt; }

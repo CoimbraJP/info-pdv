@@ -3,7 +3,7 @@ import { Plus, Search, Wrench, User, FileText, CheckCircle, Clock, Printer, Layo
 import { formatCurrency, formatDate, parseDate } from '../utils/formatters';
 import { useGlobalState } from '../context/GlobalState';
 import { OS_STATUS, OS_STATUS_WORK, OS_STATUS_META, normalizeStatus } from '../constants/osStatus';
-import { ReceiptHeader, ReceiptSite } from '../components/ReceiptBrand';
+import { OSReceipt } from '../components/Receipts';
 import './OS.css';
 
 const EMPTY_ADDRESS = { cep: '', street: '', number: '', neighborhood: '', city: '', state: '' };
@@ -91,7 +91,7 @@ const StatusPill = ({ status, onChange }) => {
 };
 
 const OS = () => {
-  const { osList, setOsList, settings } = useGlobalState();
+  const { osList, setOsList } = useGlobalState();
   const [activeTab, setActiveTab] = useState('list'); // 'list' | 'new'
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
   const [filter, setFilter] = useState('all');
@@ -153,6 +153,7 @@ const OS = () => {
     };
 
     setOsList([...osList, newOs]);
+    setPrintOS(newOs); // a OS impressa é exatamente a que foi gravada
     setTimeout(() => {
       window.print();
       setActiveTab('list');
@@ -168,6 +169,7 @@ const OS = () => {
   };
   
   const [isDeviceExpanded, setIsDeviceExpanded] = useState(false);
+  const [printOS, setPrintOS] = useState(null); // OS que vai para a impressora
   const [isServicesExpanded, setIsServicesExpanded] = useState(true);
 
   const handleEdit = (os) => {
@@ -534,7 +536,7 @@ const OS = () => {
                 <button className="btn-outline" onClick={handleCloseOS}>
                   <CheckCircle size={17} /> Encerrar OS
                 </button>
-                <button className="btn-outline" onClick={() => window.print()}>
+                <button className="btn-outline" onClick={() => { setPrintOS(editingOS); setTimeout(() => window.print(), 120); }}>
                   <Printer size={17} /> Re-imprimir Nota
                 </button>
                 <button className="btn-outline" onClick={saveEdit}>
@@ -912,42 +914,8 @@ const OS = () => {
         )}
       </div>
 
-      {/* Print Layout */}
-      <div className={`print-only template-${settings?.osPrintTemplate || 'thermal-1'}`}>
-        <ReceiptHeader />
-
-        <div className="print-section">
-          <span className="print-section-title">ORDEM DE SERVIÇO #{editingOS ? editingOS.id : (osList.length > 0 ? osList[osList.length - 1].id : 'NOVA')}</span>
-          <div className="print-row">
-            <span>Data:</span>
-            <span>{new Date().toLocaleDateString('pt-BR')}</span>
-          </div>
-        </div>
-
-        <div className="print-section">
-          <span className="print-section-title">CLIENTE</span>
-          <p><strong>{editingOS ? editingOS.client : formData.clientName}</strong></p>
-          <p>Tel: {editingOS ? editingOS.clientPhone : formData.clientPhone}</p>
-        </div>
-
-        <div className="print-section">
-          <span className="print-section-title">EQUIPAMENTO</span>
-          <p>{editingOS ? editingOS.deviceFull : `${formData.deviceType} ${formData.deviceBrand}`}</p>
-          {!editingOS && <p>S/N: {formData.deviceSN}</p>}
-        </div>
-
-        <div className="print-section">
-          <span className="print-section-title">RELATO DO DEFEITO</span>
-          <p>{!editingOS ? formData.defect : 'N/A'}</p>
-        </div>
-
-        <div className="print-footer">
-          <ReceiptSite prefix="Acompanhe seu serviço em: " />
-          <div className="print-signature">
-            Assinatura do Cliente
-          </div>
-        </div>
-      </div>
+      {/* OS impressa (Elgin i8 · modelo 4, duas vias) */}
+      {printOS && <OSReceipt os={printOS} />}
       {showServiceModal && (
         <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && setShowServiceModal(false)}>
           <div className="modal-content card">

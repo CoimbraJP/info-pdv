@@ -3,7 +3,7 @@ import { Receipt, Printer, Calendar, TrendingUp, ChevronRight } from 'lucide-rea
 import { useGlobalState } from '../context/GlobalState';
 import { formatCurrency, formatDateTime, formatDate, parseDate } from '../utils/formatters';
 import { paymentText, paymentBadge } from '../constants/payment';
-import { ReceiptHeader, ReceiptSite } from '../components/ReceiptBrand';
+import { SaleReceipt } from '../components/Receipts';
 import './OS.css';
 
 
@@ -271,80 +271,8 @@ const Vendas = () => {
         )}
       </div>
 
-      {/* ── Hidden Print Layout ── */}
-      {selectedSale && (
-        <div className="print-only">
-          <ReceiptHeader>
-            <p>--------------------------------</p>
-            <p style={{ fontWeight: 'bold' }}>RECIBO Nº #{String(selectedSale.id).slice(-6)}</p>
-            <p>{formatDateTime(selectedSale.date)}</p>
-            <p>--------------------------------</p>
-          </ReceiptHeader>
-
-          <div className="print-section">
-            <div className="print-row" style={{ fontWeight: 'bold' }}>
-              <span>ITEM</span>
-              <span>TOTAL</span>
-            </div>
-            {selectedSale.items?.map((item, i) => (
-              <div key={i} style={{ marginBottom: '1mm' }}>
-                <div style={{ fontWeight: '500' }}>{item.name}</div>
-                <div className="print-row" style={{ color: '#333' }}>
-                  <span>{item.quantity}x {formatCurrency(item.price)}</span>
-                  <span>{formatCurrency(item.price * item.quantity)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="print-section" style={{ borderTop: '1px dashed #000', paddingTop: '2mm' }}>
-            {selectedSale.discount > 0 && (
-              <>
-                <div className="print-row">
-                  <span>Subtotal</span>
-                  <span>{formatCurrency(selectedSale.subtotal ?? selectedSale.total + selectedSale.discount)}</span>
-                </div>
-                <div className="print-row">
-                  <span>Desconto</span>
-                  <span>- {formatCurrency(selectedSale.discount)}</span>
-                </div>
-              </>
-            )}
-            <div className="print-row" style={{ fontWeight: 'bold', fontSize: '10.5pt' }}>
-              <span>TOTAL</span>
-              <span>{formatCurrency(selectedSale.total)}</span>
-            </div>
-            <div className="print-row">
-              <span>Pagamento</span>
-              <span>{paymentText(selectedSale)}</span>
-            </div>
-            {selectedSale.installments > 1 && (
-              <div className="print-row">
-                <span>Parcelas</span>
-                <span>{selectedSale.installments}x de {formatCurrency(selectedSale.total / selectedSale.installments)}</span>
-              </div>
-            )}
-            {selectedSale.paymentMethod === 'dinheiro' && selectedSale.amountReceived > selectedSale.total && (
-              <>
-                <div className="print-row">
-                  <span>Recebido</span>
-                  <span>{formatCurrency(selectedSale.amountReceived)}</span>
-                </div>
-                <div className="print-row">
-                  <span>Troco</span>
-                  <span>{formatCurrency(selectedSale.amountReceived - selectedSale.total)}</span>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="print-footer">
-            <p>Obrigado pela preferência!</p>
-            <ReceiptSite />
-            <p style={{ marginTop: '2mm', fontSize: '7pt' }}>* Documento sem valor fiscal *</p>
-          </div>
-        </div>
-      )}
+      {/* ── Recibo reimpresso (modelo B4) ── */}
+      {selectedSale && <SaleReceipt sale={selectedSale} />}
     </div>
   );
 };
