@@ -208,3 +208,19 @@
 .rcpt .rc-terms p { margin: 0 0 0.6mm; }
 .rcpt .rc-sig { margin-top: 10mm; border-top: 1px solid #000; text-align: center; font-size: 8.5pt; padding-top: 0.5mm; }
 .rcpt .rc-cut { text-align: center; margin: 5mm 0 4mm; font-size: 9pt; }
+.rcpt .rc-mt1 { margin-top: 1mm; }
+.rcpt .rc-dotsep { border-top: 1px dotted #000; margin: 1mm 0; }
+.rcpt .rc-it3 { margin: 1mm 0; }
+.rcpt .rc-sec { font-weight: 800; margin: 2.2mm 0 0.6mm; border-bottom: 1px solid #000; }
+.rcpt .rc-fld { border-bottom: 1px solid #999; padding: 0.6mm 0 0.8mm; }
+.rcpt .rc-fld i { display: block; font-style: normal; font-size: 7pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.rcpt .rc-g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 3mm; }
+.rcpt .rc-frame { border: 1.5px solid #000; border-radius: 1.5mm; padding: 1.5mm 2mm; margin: 2mm 0; }
+.rcpt .rc-ftitle { font-size: 8.5pt; font-weight: 900; letter-spacing: 1px; margin-bottom: 0.8mm; }
+.rcpt .rc-kv span:first-child { font-weight: 700; white-space: nowrap; }
+.rcpt .rc-sbar { font-size: 9pt; font-weight: 800; letter-spacing: 1px; margin: 2.2mm 0 1mm; padding: 0.6mm 2mm; }
+
+/* Miniaturas em Configurações (desenho na tela, papel branco) */
+.rcpt.rc-preview { width: 72mm; background: #fff; }
+.rcpt .rc-tot span { white-space: nowrap; }
+.rcpt .rc-tot.rc-inv { font-size: 12pt; padding: 1.4mm 1.5mm; margin: 1.5mm 0 2mm; }

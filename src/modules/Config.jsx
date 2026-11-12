@@ -2,11 +2,28 @@ import { useState, useRef } from 'react';
 import { Settings, Printer, Eye, Store, Check, Database, Download, Upload, RefreshCw, ShieldCheck, Sun, Moon, Palette, KeyRound, ImagePlus, Trash2 } from 'lucide-react';
 import { useGlobalState } from '../context/GlobalState';
 import { buildBackupPayload, downloadBackup } from '../utils/backup';
-import { SaleReceipt } from '../components/Receipts';
+import { SaleReceipt, OSReceipt } from '../components/Receipts';
+import { SALE_TEMPLATES, OS_TEMPLATES, DEFAULT_SALE_TEMPLATE, DEFAULT_OS_TEMPLATE, SAMPLE_SALE, SAMPLE_OS } from '../constants/receiptTemplates';
 import { STORES, storeBrand } from '../constants/stores';
 import { DEFAULT_OS_TERMS } from '../constants/osTerms';
 
 const styles = `
+.tpl-block { margin-bottom: var(--s-5); }
+.tpl-title { font-weight: 700; margin: 0 0 var(--s-2); }
+.tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s-3); }
+.tpl-card {
+  display: flex; flex-direction: column; gap: 4px; padding: var(--s-2);
+  background: var(--surface-hover); border: 2px solid var(--border-color); border-radius: var(--radius-md);
+  color: var(--text-main); font-family: var(--font-main); text-align: left; cursor: pointer;
+  transition: border-color var(--t-fast), transform var(--t-fast);
+}
+.tpl-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.tpl-card.selected { border-color: var(--primary-color); box-shadow: 0 0 0 3px var(--primary-subtle); }
+.tpl-thumb { height: 230px; overflow: hidden; background: #fff; border-radius: var(--radius-sm); pointer-events: none; }
+.tpl-scale { transform: scale(0.5); transform-origin: top left; width: 200%; padding: 8px; }
+.tpl-name { font-size: 0.8rem; font-weight: 700; }
+.tpl-card.selected .tpl-name { color: var(--primary-color); }
+.tpl-desc { font-size: 0.7rem; color: var(--text-muted); line-height: 1.3; }
 .logo-row { display: flex; align-items: center; gap: var(--s-4); }
 .logo-preview {
   width: 72px; height: 72px; flex-shrink: 0;
@@ -118,16 +135,30 @@ const compressLogo = (file) => new Promise((resolve, reject) => {
   reader.readAsDataURL(file);
 });
 
-/** Cupom de exemplo do botão "Testar Impressão" (com os dados ainda não salvos do formulário). */
-const TestReceipt = ({ override }) => (
-  <SaleReceipt
-    override={override}
-    sale={{
-      id: 'TESTE1', date: new Date().toISOString(),
-      items: [{ name: 'TESTE DE IMPRESSÃO', price: 1, quantity: 1 }],
-      subtotal: 1, discount: 0, total: 1, paymentMethod: 'pix',
-    }}
-  />
+/**
+ * Escolha de modelo com miniatura real (o mesmo componente que imprime, reduzido).
+ * A escolha fica nas configurações da loja e sincroniza com os outros computadores dela.
+ */
+const TemplatePicker = ({ title, options, current, onPick, render }) => (
+  <div className="tpl-block">
+    <p className="tpl-title">{title}</p>
+    <div className="tpl-grid">
+      {options.map(o => (
+        <button
+          key={o.id}
+          type="button"
+          className={`tpl-card ${current === o.id ? 'selected' : ''}`}
+          onClick={() => onPick(o.id)}
+          aria-pressed={current === o.id}
+          title={o.desc}
+        >
+          <div className="tpl-thumb"><div className="tpl-scale">{render(o.id)}</div></div>
+          <span className="tpl-name">{o.id} · {o.name}</span>
+          <span className="tpl-desc">{o.desc}</span>
+        </button>
+      ))}
+    </div>
+  </div>
 );
 
 const Config = () => {
@@ -149,6 +180,10 @@ const Config = () => {
   const [credMsg, setCredMsg] = useState(null);
   const [passForm, setPassForm] = useState({ current: '', next: '', confirm: '' });
   const [passMsg, setPassMsg] = useState(null);
+  const [testKind, setTestKind] = useState('venda'); // o que o "Testar impressão" manda para a i8
+  const saleTemplate = settings?.saleTemplate || DEFAULT_SALE_TEMPLATE;
+  const osTemplate = settings?.osTemplate || DEFAULT_OS_TEMPLATE;
+  const printTest = (kind) => { setTestKind(kind); setTimeout(() => window.print(), 120); };
   const [saved, setSaved] = useState(false);
   const [backupMsg, setBackupMsg] = useState(null);
   const fileInputRef = useRef(null);
@@ -282,7 +317,7 @@ const Config = () => {
           <Settings size={20} className="text-primary" />
           Configurações
         </h2>
-        <button className="btn-outline btn-outline-sm" onClick={() => window.print()}>
+        <button className="btn-outline btn-outline-sm" onClick={() => printTest('venda')}>
           <Eye size={16} /> Testar Impressão
         </button>
       </div>
@@ -435,13 +470,30 @@ const Config = () => {
               <h3 className="panel-title"><Printer size={17} /> Impressão — Elgin i8 (80 mm)</h3>
             </header>
 
-            <div className="info-tip">
-              <Printer size={16} className="text-primary" />
-              <span>
-                Impressora: <strong>Elgin i8 · bobina 80 mm</strong> — Cupom de venda: <strong className="text-primary">modelo B4</strong> ·
-                Ordem de serviço: <strong className="text-primary">modelo 4 (duas vias)</strong>.
-                O botão <strong>Testar Impressão</strong> (no topo) imprime um cupom de exemplo com os dados desta loja.
+            <TemplatePicker
+              title="Cupom de venda"
+              options={SALE_TEMPLATES}
+              current={saleTemplate}
+              onPick={(id) => setSettings({ ...settings, saleTemplate: id })}
+              render={(id) => <SaleReceipt preview template={id} sale={{ ...SAMPLE_SALE, date: new Date().toISOString() }} override={storeForm} />}
+            />
+            <TemplatePicker
+              title="Ordem de serviço (duas vias, com as condições)"
+              options={OS_TEMPLATES}
+              current={osTemplate}
+              onPick={(id) => setSettings({ ...settings, osTemplate: id })}
+              render={(id) => <OSReceipt preview singleVia template={id} os={{ ...SAMPLE_OS, date: new Date().toISOString() }} />}
+            />
+            <div className="flex gap-2 justify-end mt-4" style={{ flexWrap: 'wrap' }}>
+              <span className="text-sm text-muted" style={{ marginRight: 'auto' }}>
+                Impressora: <strong>Elgin i8 · bobina 80 mm</strong>. A escolha vale só para esta loja.
               </span>
+              <button type="button" className="btn-outline btn-outline-sm" onClick={() => printTest('venda')}>
+                <Printer size={15} /> Testar cupom de venda
+              </button>
+              <button type="button" className="btn-outline btn-outline-sm" onClick={() => printTest('os')}>
+                <Printer size={15} /> Testar OS
+              </button>
             </div>
           </section>
 
@@ -609,7 +661,9 @@ const Config = () => {
       </div>
 
       {/* Teste de impressão: cupom de exemplo no modelo oficial, com os dados digitados */}
-      <TestReceipt override={storeForm} />
+      {testKind === 'venda'
+        ? <SaleReceipt override={storeForm} sale={{ ...SAMPLE_SALE, id: 'TESTE1', date: new Date().toISOString() }} />
+        : <OSReceipt os={{ ...SAMPLE_OS, id: 'TESTE', date: new Date().toISOString() }} />}
     </div>
   );
 };
